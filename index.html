@@ -773,14 +773,12 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           <div class="metric-card"><div class="metric-lbl">Inactive / Moved Out</div><div class="metric-val" id="m-inactive" style="color:var(--text2)">0</div></div>
         </div>
 
-        <!-- Unit type / ownership filter tabs -->
+        <!-- Unit type filter tabs -->
         <div class="filter-tabs">
           <button class="ftab active" onclick="filterMembers('all', this)">All</button>
           <button class="ftab" onclick="filterMembers('2bhk', this)">2 BHK</button>
           <button class="ftab" onclick="filterMembers('3bhk', this)">3 BHK</button>
           <button class="ftab" onclick="filterMembers('rowhouse', this)">Row House</button>
-          <button class="ftab" onclick="filterMembers('owner', this)">Owners</button>
-          <button class="ftab" onclick="filterMembers('tenant', this)">Tenants</button>
         </div>
 
         <!-- Members table with search -->
@@ -799,17 +797,12 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
                   <th>Member</th>
                   <th>Unit Type</th>
                   <th>House No.</th>
-                  <th>Ownership</th>
                   <th>Contact</th>
-                  <th>Family Size</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody id="members-tbody"></tbody>
             </table>
-            <p style="font-size:12px;color:var(--text2);padding:10px 4px 0;">
-              💡 Dues, payments, and defaulter tracking will appear here once the Maintenance Bills module is wired up.
-            </p>
           </div>
         </div>
       </div>
@@ -1548,28 +1541,9 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         <input class="form-input" id="f-phone" placeholder="e.g. 98765 43210" />
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Email</label>
-        <input class="form-input" id="f-email" placeholder="email@example.com" />
-      </div>
-      <div class="form-group">
-        <label class="form-label">Move-in Date *</label>
-        <input class="form-input" id="f-date" type="date" />
-      </div>
-    </div>
-    <!-- Ownership dropdown — shows/hides owner-name field -->
     <div class="form-group">
-      <label class="form-label">Ownership</label>
-      <select class="form-select" id="f-owner" onchange="toggleOwnerField()">
-        <option value="owner">Owner (resident is the owner)</option>
-        <option value="tenant">Tenant (unit is rented)</option>
-      </select>
-    </div>
-    <!-- Owner name — only visible when ownership = Tenant -->
-    <div class="form-group hidden" id="f-owner-name-group">
-      <label class="form-label">Name of Property Owner *</label>
-      <input class="form-input" id="f-owner-name" placeholder="e.g. Suresh Kumar (owner of A-301)" />
+      <label class="form-label">Email</label>
+      <input class="form-input" id="f-email" placeholder="email@example.com" />
     </div>
     <div class="form-group">
       <label class="form-label">Vehicle Registration No.</label>
@@ -1577,17 +1551,13 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Family Size</label>
-        <input class="form-input" id="f-family" type="number" placeholder="e.g. 4" min="1" />
-      </div>
-      <div class="form-group">
         <label class="form-label">Emergency Contact Name</label>
         <input class="form-input" id="f-emergency-name" placeholder="e.g. Ravi Krishnan" />
       </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Emergency Contact Phone</label>
-      <input class="form-input" id="f-emergency-phone" placeholder="10-digit number" />
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Phone</label>
+        <input class="form-input" id="f-emergency-phone" placeholder="10-digit number" />
+      </div>
     </div>
     <div id="modal-error" class="error-msg hidden">Please fill in all required fields (Name, House No., Unit Type, Phone).</div>
     <div class="modal-actions">
@@ -1722,11 +1692,10 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
 
     <div id="import-step-upload">
       <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">
-        Upload an .xlsx file with columns: <code>full_name, house_number, unit_type, ownership_type, owner_name,
-        phone_primary, phone_secondary, email, family_size, move_in_date, vehicle_1_reg, vehicle_2_reg,
-        parking_slot, emergency_contact_name, emergency_contact_phone, id_proof_type, id_proof_number, notes</code>.
-        Only the first four are required for owners; tenants also need <code>owner_name</code>.
-        Dates should read as <code>YYYY-MM-DD</code>.
+        Upload an .xlsx file with columns: <code>full_name, house_number, unit_type,
+        phone_primary, phone_secondary, email, vehicle_1_reg, vehicle_2_reg,
+        emergency_contact_name, emergency_contact_phone</code>.
+        Only the first four are required.
       </p>
       <input type="file" id="import-file-input" accept=".xlsx,.xls" onchange="handleImportFile(event)" />
       <div id="import-parse-error" class="error-msg hidden" style="margin-top:12px;"></div>
@@ -1739,7 +1708,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
       <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
         <table style="width:100%;font-size:12px;">
           <thead style="position:sticky;top:0;background:#f5f5f7;">
-            <tr><th style="padding:6px 8px;text-align:left;">House</th><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Phone</th><th style="padding:6px 8px;text-align:left;">Move-in</th></tr>
+            <tr><th style="padding:6px 8px;text-align:left;">House</th><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Phone</th></tr>
           </thead>
           <tbody id="import-preview-body"></tbody>
         </table>
@@ -1830,20 +1799,6 @@ function openImportModal() {
 }
 function closeImportModal() { document.getElementById('import-modal').classList.add('hidden'); }
 
-// Converts an Excel date (which may arrive as a JS Date, a serial number,
-// or plain text depending on how the cell was formatted) into YYYY-MM-DD.
-function normalizeExcelDate(value) {
-  if (!value) return null;
-  if (value instanceof Date) {
-    return value.toISOString().split('T')[0];
-  }
-  const str = String(value).trim();
-  // Already in YYYY-MM-DD form
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-  const parsed = new Date(str);
-  return isNaN(parsed) ? null : parsed.toISOString().split('T')[0];
-}
-
 function handleImportFile(event) {
   const file = event.target.files[0];
   const errBox = document.getElementById('import-parse-error');
@@ -1867,21 +1822,13 @@ function handleImportFile(event) {
         fullName: String(r.full_name || '').trim(),
         houseNumber: String(r.house_number || '').trim(),
         unitType: String(r.unit_type || '').trim().toLowerCase(),
-        ownershipType: String(r.ownership_type || 'owner').trim().toLowerCase(),
-        ownerName: String(r.owner_name || '').trim() || null,
         phonePrimary: String(r.phone_primary || '').trim(),
         phoneSecondary: String(r.phone_secondary || '').trim() || null,
         email: String(r.email || '').trim() || null,
-        familySize: r.family_size ? parseInt(r.family_size, 10) : null,
-        moveInDate: normalizeExcelDate(r.move_in_date),
         vehicle1Reg: String(r.vehicle_1_reg || '').trim() || null,
         vehicle2Reg: String(r.vehicle_2_reg || '').trim() || null,
-        parkingSlot: String(r.parking_slot || '').trim() || null,
         emergencyContactName: String(r.emergency_contact_name || '').trim() || null,
         emergencyContactPhone: String(r.emergency_contact_phone || '').trim() || null,
-        idProofType: String(r.id_proof_type || '').trim() || null,
-        idProofNumber: String(r.id_proof_number || '').trim() || null,
-        notes: String(r.notes || '').trim() || null,
       }));
 
       renderImportPreview();
@@ -1898,14 +1845,13 @@ function handleImportFile(event) {
 function renderImportPreview() {
   document.getElementById('import-row-count').textContent = importParsedRows.length;
   document.getElementById('import-preview-body').innerHTML = importParsedRows.map(r => {
-    const missing = !r.fullName || !r.houseNumber || !r.unitType || !r.phonePrimary || !r.moveInDate;
+    const missing = !r.fullName || !r.houseNumber || !r.unitType || !r.phonePrimary;
     const rowStyle = missing ? 'background:#fdecea;' : '';
     return `<tr style="${rowStyle}">
       <td style="padding:6px 8px;">${r.houseNumber || '<span style="color:var(--red)">missing</span>'}</td>
       <td style="padding:6px 8px;">${r.fullName || '<span style="color:var(--red)">missing</span>'}</td>
       <td style="padding:6px 8px;">${r.unitType || '<span style="color:var(--red)">missing</span>'}</td>
       <td style="padding:6px 8px;">${r.phonePrimary || '<span style="color:var(--red)">missing</span>'}</td>
-      <td style="padding:6px 8px;">${r.moveInDate || '<span style="color:var(--red)">invalid/missing</span>'}</td>
     </tr>`;
   }).join('');
 }
@@ -1968,7 +1914,7 @@ let members = [];
 
 async function loadMembers() {
   const tbody = document.getElementById('members-tbody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text2);">Loading…</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text2);">Loading…</td></tr>';
   try {
     const rows = await apiRequest('/api/members');
     members = rows.map(r => ({
@@ -1976,17 +1922,15 @@ async function loadMembers() {
       name: r.full_name,
       house: r.house_number,
       type: r.unit_type,
-      ownership: r.ownership_type === 'tenant' ? 'Tenant' : 'Owner',
       phone: r.phone_primary,
       email: r.email || '—',
-      family: r.family_size,
       isActive: r.is_active,
       photo: '',
     }));
     renderMemberMetrics();
     renderMembersTable();
   } catch (e) {
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--red);">Could not load members: ${e.message}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--red);">Could not load members: ${e.message}</td></tr>`;
   }
 }
 
@@ -2516,11 +2460,7 @@ function renderMemberMetrics() {
    ════════════════════════════════════════════════════ */
 function renderMembersTable() {
   const filtered = members.filter(m => {
-    let matchType;
-    if (currentFilter === 'all')            matchType = true;
-    else if (currentFilter === 'owner')     matchType = m.ownership === 'Owner';
-    else if (currentFilter === 'tenant')    matchType = m.ownership === 'Tenant';
-    else                                    matchType = m.type === currentFilter;
+    const matchType = currentFilter === 'all' || m.type === currentFilter;
     const q = currentSearch.toLowerCase();
     const matchSearch = !q || m.name.toLowerCase().includes(q) || m.house.toLowerCase().includes(q) || m.phone.includes(q) || m.email.toLowerCase().includes(q);
     return matchType && matchSearch;
@@ -2528,7 +2468,7 @@ function renderMembersTable() {
   document.getElementById('member-count-lbl').textContent = filtered.length + ' of ' + members.length + ' members';
   const tbody = document.getElementById('members-tbody');
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text2);">No members found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text2);">No members found.</td></tr>';
     return;
   }
   tbody.innerHTML = filtered.map(m => `
@@ -2544,9 +2484,7 @@ function renderMembersTable() {
       </td>
       <td><span class="badge badge-navy">${getTypeLabel(m.type)}</span></td>
       <td style="font-weight:500">${m.house}</td>
-      <td><span class="badge ${m.ownership === 'Owner' ? 'badge-navy' : 'badge-purple'}">${m.ownership}</span></td>
       <td style="color:var(--text2);font-size:13px">${m.phone}</td>
-      <td>${m.family}</td>
       <td><span class="badge ${m.isActive ? 'badge-green' : 'badge-navy'}">${m.isActive ? 'Active' : 'Inactive'}</span></td>
     </tr>
   `).join('');
@@ -2590,17 +2528,6 @@ async function showMemberDetail(id) {
 
   const initials = m.full_name.split(' ').map(n=>n[0]).join('').slice(0,2);
   const photoHtml = `<div class="detail-photo" style="font-size:72px;opacity:0.25;">${initials}</div>`;
-  const ownershipLabel = m.ownership_type === 'tenant' ? 'Tenant' : 'Owner';
-  const ownerBanner = (m.ownership_type === 'tenant' && m.owner_name)
-    ? `<div class="owner-banner">
-        <div class="owner-banner-icon">🏠</div>
-        <div>
-          <div class="owner-banner-text">This is a tenant unit. Property Owner:</div>
-          <div class="owner-banner-name">${m.owner_name}</div>
-        </div>
-      </div>`
-    : '';
-  const moveInDisplay = m.move_in_date ? new Date(m.move_in_date).toLocaleDateString('en-IN', {month:'short', year:'numeric'}) : '—';
   const vehicles = [m.vehicle_1_reg, m.vehicle_2_reg].filter(Boolean).join(', ') || '—';
   const emergency = m.emergency_contact_name
     ? `${m.emergency_contact_name}${m.emergency_contact_phone ? ' – ' + m.emergency_contact_phone : ''}`
@@ -2616,17 +2543,13 @@ async function showMemberDetail(id) {
     <div class="detail-card">
       ${photoHtml}
       <div class="detail-info">
-        ${ownerBanner}
         <h2 class="detail-name">${m.full_name}</h2>
-        <p class="detail-type">${getTypeLabel(m.unit_type)} &nbsp;·&nbsp; ${m.house_number} &nbsp;·&nbsp; ${ownershipLabel}</p>
+        <p class="detail-type">${getTypeLabel(m.unit_type)} &nbsp;·&nbsp; ${m.house_number}</p>
         <div class="detail-rows">
           <div class="detail-row"><span class="detail-key">Phone</span><span class="detail-val">${m.phone_primary}</span></div>
           ${m.phone_secondary ? `<div class="detail-row"><span class="detail-key">Alternate Phone</span><span class="detail-val">${m.phone_secondary}</span></div>` : ''}
           <div class="detail-row"><span class="detail-key">Email</span><span class="detail-val" style="font-size:13px">${m.email || '—'}</span></div>
-          <div class="detail-row"><span class="detail-key">Move-in Date</span><span class="detail-val">${moveInDisplay}</span></div>
-          <div class="detail-row"><span class="detail-key">Family Size</span><span class="detail-val">${m.family_size} members</span></div>
           <div class="detail-row"><span class="detail-key">Vehicle(s)</span><span class="detail-val">${vehicles}</span></div>
-          <div class="detail-row"><span class="detail-key">Parking Slot</span><span class="detail-val">${m.parking_slot || '—'}</span></div>
           <div class="detail-row"><span class="detail-key">Emergency Contact</span><span class="detail-val" style="font-size:12px;max-width:160px;text-align:right">${emergency}</span></div>
           <div class="detail-row"><span class="detail-key">Status</span>
             <span class="badge ${m.is_active ? 'badge-green' : 'badge-navy'}">${m.is_active ? 'Active' : 'Inactive'}</span>
@@ -2640,12 +2563,6 @@ async function showMemberDetail(id) {
         <h3>🧾 Maintenance & Payments</h3>
         <div id="member-bills-content" style="text-align:center;padding:20px;color:var(--text2);">Loading billing history…</div>
       </div>
-      <div class="info-section">
-        <h3>Identity Verification</h3>
-        <div class="detail-row"><span class="detail-key">ID Proof Type</span><span class="detail-val">${m.id_proof_type || '—'}</span></div>
-        <div class="detail-row"><span class="detail-key">ID Proof Number</span><span class="detail-val">${m.id_proof_number || '—'}</span></div>
-      </div>
-      ${m.notes ? `<div class="info-section admin-only"><h3>Admin Notes</h3><p style="font-size:13px;color:var(--text2);">${m.notes}</p></div>` : ''}
     </div>
   `;
   applyPermissions();
@@ -2663,13 +2580,11 @@ function openAddModal() {
   document.getElementById('add-modal').classList.remove('hidden');
   document.getElementById('modal-error').classList.add('hidden');
   // Reset all form fields
-  ['f-name','f-house','f-phone','f-email','f-vehicle','f-emergency-name','f-emergency-phone','f-family','f-date','f-owner-name'].forEach(id => {
+  ['f-name','f-house','f-phone','f-email','f-vehicle','f-emergency-name','f-emergency-phone'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('f-type').value   = '';
-  document.getElementById('f-owner').value  = 'owner';
-  document.getElementById('f-owner-name-group').classList.add('hidden');
   // Reset photo preview
   document.getElementById('f-photo-preview').style.display = 'none';
   document.getElementById('f-upload-icon').style.display   = '';
@@ -2692,12 +2607,7 @@ function openEditModal() {
   document.getElementById('f-type').value   = m.unit_type || '';
   document.getElementById('f-phone').value  = m.phone_primary || '';
   document.getElementById('f-email').value  = m.email || '';
-  document.getElementById('f-date').value   = m.move_in_date ? m.move_in_date.split('T')[0] : '';
-  document.getElementById('f-owner').value  = m.ownership_type || 'owner';
-  document.getElementById('f-owner-name').value = m.owner_name || '';
-  document.getElementById('f-owner-name-group').classList.toggle('hidden', m.ownership_type !== 'tenant');
   document.getElementById('f-vehicle').value = m.vehicle_1_reg || '';
-  document.getElementById('f-family').value  = m.family_size || '';
   document.getElementById('f-emergency-name').value  = m.emergency_contact_name || '';
   document.getElementById('f-emergency-phone').value = m.emergency_contact_phone || '';
   // Photo editing isn't wired to storage yet — keep the preview blank
@@ -2709,12 +2619,6 @@ function openEditModal() {
 function closeAddModal() {
   document.getElementById('add-modal').classList.add('hidden');
   editingMemberId = null;
-}
-
-// Toggles the owner-name input when user selects "Tenant" ownership
-function toggleOwnerField() {
-  const isTenant = document.getElementById('f-owner').value === 'tenant';
-  document.getElementById('f-owner-name-group').classList.toggle('hidden', !isTenant);
 }
 
 // Handles photo file selection — preview only for now; not yet sent to the
@@ -2739,18 +2643,10 @@ async function addMember() {
   const house = document.getElementById('f-house').value.trim();
   const type  = document.getElementById('f-type').value;
   const phone = document.getElementById('f-phone').value.trim();
-  const dateVal = document.getElementById('f-date').value;
   const err   = document.getElementById('modal-error');
 
-  if (!name || !house || !type || !phone || !dateVal) {
+  if (!name || !house || !type || !phone) {
     err.textContent = 'Please fill in all required fields (marked *).';
-    err.classList.remove('hidden');
-    return;
-  }
-  const ownershipVal = document.getElementById('f-owner').value;
-  const ownerName    = document.getElementById('f-owner-name').value.trim();
-  if (ownershipVal === 'tenant' && !ownerName) {
-    err.textContent = 'Please enter the property owner\'s name for a tenant.';
     err.classList.remove('hidden');
     return;
   }
@@ -2764,12 +2660,8 @@ async function addMember() {
     fullName: name,
     houseNumber: house,
     unitType: type,
-    ownershipType: ownershipVal,
-    ownerName: ownershipVal === 'tenant' ? ownerName : null,
     phonePrimary: phone,
     email: document.getElementById('f-email').value.trim() || null,
-    familySize: parseInt(document.getElementById('f-family').value) || 1,
-    moveInDate: dateVal,
     vehicle1Reg: document.getElementById('f-vehicle').value.trim() || null,
     emergencyContactName: document.getElementById('f-emergency-name').value.trim() || null,
     emergencyContactPhone: document.getElementById('f-emergency-phone').value.trim() || null,
