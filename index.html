@@ -963,8 +963,9 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           <button class="ftab" onclick="filterNotices('general', this)">General</button>
           <button class="ftab" onclick="filterNotices('maintenance', this)">Maintenance</button>
           <button class="ftab" onclick="filterNotices('event', this)">Events</button>
-          <button class="ftab" onclick="filterNotices('urgent', this)">Urgent</button>
-          <button class="ftab" onclick="filterNotices('financial', this)">Financial</button>
+          <button class="ftab" onclick="filterNotices('emergency', this)">Emergency</button>
+          <button class="ftab" onclick="filterNotices('finance', this)">Finance</button>
+          <button class="ftab" onclick="filterNotices('legal', this)">Legal</button>
         </div>
 
         <!-- Dynamically rendered notice cards -->
@@ -1575,7 +1576,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
 <div class="modal-overlay hidden" id="notice-modal">
   <div class="modal-box">
     <div class="modal-header">
-      <h2 class="modal-title">Post New Notice</h2>
+      <h2 class="modal-title" id="notice-modal-title">Post New Notice</h2>
       <button class="modal-close" onclick="closeNoticeModal()">✕</button>
     </div>
     <div class="form-group">
@@ -1584,14 +1585,14 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Category *</label>
+        <label class="form-label">Category</label>
         <select class="form-select" id="n-category">
-          <option value="">Select category</option>
           <option value="general">General</option>
           <option value="maintenance">Maintenance</option>
           <option value="event">Event</option>
-          <option value="urgent">Urgent</option>
-          <option value="financial">Financial</option>
+          <option value="emergency">Emergency</option>
+          <option value="finance">Finance</option>
+          <option value="legal">Legal</option>
         </select>
       </div>
       <div class="form-group">
@@ -1599,7 +1600,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         <select class="form-select" id="n-priority">
           <option value="normal">Normal</option>
           <option value="high">High</option>
-          <option value="critical">Critical</option>
+          <option value="urgent">Urgent</option>
         </select>
       </div>
     </div>
@@ -1609,18 +1610,25 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Posted By</label>
-        <input class="form-input" id="n-by" placeholder="e.g. RWA Committee" />
+        <label class="form-label">Visible To</label>
+        <select class="form-select" id="n-visible-to">
+          <option value="all">All Residents</option>
+          <option value="admin_only">Committee/Admin Only</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Valid Until (optional)</label>
         <input class="form-input" id="n-expiry" type="date" />
       </div>
     </div>
-    <div id="notice-error" class="error-msg hidden">Please fill in the required fields (Title, Category, Body).</div>
+    <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="n-pinned" style="width:auto;" />
+      <label class="form-label" style="margin:0;" for="n-pinned">📌 Pin this notice to the top</label>
+    </div>
+    <div id="notice-error" class="error-msg hidden">Please fill in the required fields (Title, Body).</div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeNoticeModal()">Cancel</button>
-      <button class="btn-add btn-gold" onclick="postNotice()">Post Notice</button>
+      <button class="btn-add btn-gold" id="notice-submit-btn" onclick="postNotice()">Post Notice</button>
     </div>
   </div>
 </div>
@@ -2055,13 +2063,10 @@ function figuresFor(m, year, period) {
 
 /* ──────────────────────────────────────────────────
    NOTICE BOARD DATA STORE
-   Notices are posted by admin and displayed in the notice board.
+   Populated from the real backend — see loadNotices() below.
    ────────────────────────────────────────────────── */
-let notices = [
-  { id:1, title:'Annual General Meeting — 28th May 2025', category:'general', priority:'high', body:'The Annual General Meeting (AGM) for FY 2024–25 will be held on 28th May 2025 at 6:00 PM in the Community Hall. All residents are requested to attend. Agenda: Annual accounts review, maintenance rate revision, election of new committee. Kindly confirm attendance by 25th May.', by:'RWA Committee', date:'May 10, 2025', expiry:'' },
-  { id:2, title:'Water Supply Disruption — 14th & 15th May', category:'urgent', priority:'critical', body:'Please note that the water supply will be interrupted from 10:00 PM on May 14th to 6:00 AM on May 16th due to pipeline maintenance work being carried out by Bhilai Municipal Corporation. Residents are advised to store adequate water. Tanker water will be arranged for Tower B.', by:'Maintenance Head', date:'May 12, 2025', expiry:'May 16, 2025' },
-  { id:3, title:'Maintenance Dues — May 2025 Reminder', category:'financial', priority:'normal', body:'This is a gentle reminder that the maintenance dues for May 2025 are due by 10th of each month. Residents with pending dues are requested to clear their payments at the earliest to avoid late charges. Online payment via UPI/NEFT is preferred. Contact the treasurer for assistance.', by:'Treasurer', date:'May 5, 2025', expiry:'' },
-];
+let notices = [];
+let editingNoticeId = null;
 
 /* ──────────────────────────────────────────────────
    COMPLAINTS DATA STORE
@@ -2396,7 +2401,7 @@ function showDash(view) {
   }
   if (view === 'members') loadMembers();
   // Render dynamic lists when switching to those views
-  if (view === 'notices')    renderNotices();
+  if (view === 'notices')    loadNotices();
   if (view === 'complaints') loadComplaints();
   if (view === 'bills') loadBills();
 }
@@ -3314,16 +3319,28 @@ function applyAnalyticsData() {
 
 
 /* ════════════════════════════════════════════════════
-   NOTICE BOARD — render, filter, post, delete
+   NOTICE BOARD — render, filter, post, edit, delete
    ════════════════════════════════════════════════════ */
 const categoryColors = {
   general:     'badge-navy',
   maintenance: 'badge-amber',
   event:       'badge-green',
-  urgent:      'badge-red',
-  financial:   'badge-purple',
+  emergency:   'badge-red',
+  finance:     'badge-purple',
+  legal:       'badge-navy',
 };
-const priorityColors = { normal: 'badge-navy', high: 'badge-amber', critical: 'badge-red' };
+const priorityColors = { normal: 'badge-navy', high: 'badge-amber', urgent: 'badge-red' };
+
+async function loadNotices() {
+  const list = document.getElementById('notices-list');
+  list.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">Loading…</div>';
+  try {
+    notices = await apiRequest('/api/notices');
+    renderNotices();
+  } catch (e) {
+    list.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red);">Could not load notices: ${e.message}</div>`;
+  }
+}
 
 function renderNotices() {
   const filtered = notices.filter(n => noticeFilter === 'all' || n.category === noticeFilter);
@@ -3332,12 +3349,15 @@ function renderNotices() {
     list.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">No notices found in this category.</div>';
     return;
   }
-  list.innerHTML = filtered.map(n => `
+  list.innerHTML = filtered.map(n => {
+    const dateStr = new Date(n.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+    const expiryStr = n.expires_at ? ' · Valid till ' + new Date(n.expires_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}) : '';
+    return `
     <div class="notice-card">
       <div class="notice-header">
         <div>
-          <div class="notice-title">${n.title}</div>
-          <div class="notice-meta">Posted by ${n.by} · ${n.date}${n.expiry ? ' · Valid till '+n.expiry : ''}</div>
+          <div class="notice-title">${n.is_pinned ? '📌 ' : ''}${n.title}</div>
+          <div class="notice-meta">Posted by ${n.posted_by_name || 'Committee'} · ${dateStr}${expiryStr}${n.visible_to === 'admin_only' ? ' · 🔒 Committee/Admin Only' : ''}</div>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;">
           <span class="badge ${categoryColors[n.category] || 'badge-navy'}">${n.category.charAt(0).toUpperCase()+n.category.slice(1)}</span>
@@ -3345,11 +3365,12 @@ function renderNotices() {
         </div>
       </div>
       <div class="notice-body">${n.body}</div>
-      ${isAdmin() ? `<div class="notice-actions">
-        <button class="btn-sm btn-sm-red" onclick="deleteNotice(${n.id})">Delete</button>
+      ${isAdmin() || isCommittee() ? `<div class="notice-actions">
+        <button class="btn-sm btn-sm-outline" onclick="openEditNoticeModal('${n.id}')">Edit</button>
+        <button class="btn-sm btn-sm-red" onclick="deleteNotice('${n.id}')">Delete</button>
       </div>` : ''}
     </div>
-  `).join('');
+  `; }).join('');
 }
 
 function filterNotices(cat, btn) {
@@ -3359,35 +3380,87 @@ function filterNotices(cat, btn) {
   renderNotices();
 }
 
-function openNoticeModal()  { document.getElementById('notice-modal').classList.remove('hidden'); document.getElementById('notice-error').classList.add('hidden'); }
-function closeNoticeModal() { document.getElementById('notice-modal').classList.add('hidden'); }
-
-function postNotice() {
-  const title    = document.getElementById('n-title').value.trim();
-  const category = document.getElementById('n-category').value;
-  const body     = document.getElementById('n-body').value.trim();
-  const err      = document.getElementById('notice-error');
-  if (!title || !category || !body) { err.classList.remove('hidden'); return; }
-  notices.unshift({
-    id:       Date.now(),
-    title, category, body,
-    priority: document.getElementById('n-priority').value,
-    by:       document.getElementById('n-by').value.trim() || (currentUser ? currentUser.name : 'RWA Committee'),
-    date:     new Date().toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}),
-    expiry:   document.getElementById('n-expiry').value || '',
-  });
-  closeNoticeModal();
-  renderNotices();
-  // Reset modal form fields
-  ['n-title','n-by','n-body','n-expiry'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('n-category').value = '';
+function openNoticeModal() {
+  editingNoticeId = null;
+  document.getElementById('notice-modal-title').textContent = 'Post New Notice';
+  document.getElementById('notice-submit-btn').textContent = 'Post Notice';
+  document.getElementById('notice-modal').classList.remove('hidden');
+  document.getElementById('notice-error').classList.add('hidden');
+  ['n-title','n-body','n-expiry'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('n-category').value = 'general';
   document.getElementById('n-priority').value = 'normal';
+  document.getElementById('n-visible-to').value = 'all';
+  document.getElementById('n-pinned').checked = false;
 }
 
-function deleteNotice(id) {
+// Opens the same modal pre-filled with an existing notice's data,
+// switched into "edit" mode (submits a PUT instead of a POST).
+function openEditNoticeModal(id) {
+  const n = notices.find(x => x.id === id);
+  if (!n) return;
+  editingNoticeId = id;
+  document.getElementById('notice-modal-title').textContent = 'Edit Notice';
+  document.getElementById('notice-submit-btn').textContent = 'Save Changes';
+  document.getElementById('notice-modal').classList.remove('hidden');
+  document.getElementById('notice-error').classList.add('hidden');
+  document.getElementById('n-title').value = n.title;
+  document.getElementById('n-body').value = n.body;
+  document.getElementById('n-category').value = n.category;
+  document.getElementById('n-priority').value = n.priority;
+  document.getElementById('n-visible-to').value = n.visible_to;
+  document.getElementById('n-pinned').checked = n.is_pinned;
+  document.getElementById('n-expiry').value = n.expires_at ? n.expires_at.split('T')[0] : '';
+}
+
+function closeNoticeModal() {
+  document.getElementById('notice-modal').classList.add('hidden');
+  editingNoticeId = null;
+}
+
+async function postNotice() {
+  const title = document.getElementById('n-title').value.trim();
+  const body  = document.getElementById('n-body').value.trim();
+  const err   = document.getElementById('notice-error');
+  if (!title || !body) { err.textContent = 'Please fill in the Title and Body.'; err.classList.remove('hidden'); return; }
+  err.classList.add('hidden');
+
+  const btn = document.getElementById('notice-submit-btn');
+  const isEditing = !!editingNoticeId;
+  btn.disabled = true; btn.textContent = isEditing ? 'Saving…' : 'Posting…';
+
+  const payload = {
+    title, body,
+    category: document.getElementById('n-category').value,
+    priority: document.getElementById('n-priority').value,
+    visibleTo: document.getElementById('n-visible-to').value,
+    isPinned: document.getElementById('n-pinned').checked,
+    expiresAt: document.getElementById('n-expiry').value || null,
+  };
+
+  try {
+    if (isEditing) {
+      await apiRequest(`/api/notices/${editingNoticeId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await apiRequest('/api/notices', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    closeNoticeModal();
+    await loadNotices();
+  } catch (e) {
+    err.textContent = e.message || 'Could not save notice.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = isEditing ? 'Save Changes' : 'Post Notice';
+  }
+}
+
+async function deleteNotice(id) {
   if (!confirm('Delete this notice?')) return;
-  notices = notices.filter(n => n.id !== id);
-  renderNotices();
+  try {
+    await apiRequest(`/api/notices/${id}`, { method: 'DELETE' });
+    await loadNotices();
+  } catch (e) {
+    alert('Could not delete notice: ' + e.message);
+  }
 }
 
 
