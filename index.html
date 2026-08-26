@@ -1037,6 +1037,32 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         </table>
       </div>
 
+      <!-- ══════════════════════════════
+           RESIDENT MAINTENANCE PAYMENT PAGE
+           Shown when a resident clicks "Pay" on their own bill.
+           ══════════════════════════════ -->
+      <div id="dash-pay-upi" class="hidden">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">Pay Maintenance</h2>
+            <p class="page-sub" id="pay-upi-bill-summary"></p>
+          </div>
+          <button class="btn-cancel" onclick="showMyProfile()">← Back to Profile</button>
+        </div>
+
+        <div style="max-width:420px;margin:0 auto;text-align:center;background:var(--surface2);border-radius:12px;padding:32px;">
+          <div style="background:#fff;border:2px dashed var(--border);border-radius:10px;width:220px;height:220px;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:13px;">
+            [ UPI QR Code — Page under development ]
+          </div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">UPI ID</div>
+          <div style="font-size:16px;font-weight:600;color:var(--navy);margin-bottom:20px;">[ UPI ID — Page under development ]</div>
+          <p style="font-size:12px;color:var(--text2);">
+            Online UPI payment isn't live yet. Please contact the society office to pay this bill for now —
+            this page will let you scan and pay directly once it's ready.
+          </p>
+        </div>
+      </div>
+
       <!-- ── VIEW BILL PAYMENTS MODAL (committee/admin side download access) ── -->
       <div class="modal-overlay hidden" id="bill-payments-modal">
         <div class="modal-box">
@@ -2159,13 +2185,6 @@ function getCurrentAnalyticsData() {
   if (analyticsPeriod === 'yearly') return getYearlyAnalytics(analyticsYear);
   return analyticsStore[analyticsYear][analyticsPeriod];
 }
-// 3-year Collection Trend chart — always yearly totals for the most recent 3 years
-function getTrendData() {
-  return AVAILABLE_YEARS.slice(-3).map(y => (getYearlyAnalytics(y) || {}).collected || 0);
-}
-function getTrendLabels() {
-  return AVAILABLE_YEARS.slice(-3).map(y => (y - 1) + '–' + String(y).slice(2));
-}
 
 
 /* ════════════════════════════════════════════════════
@@ -2383,7 +2402,7 @@ function showDash(view) {
   if ((isCommittee() || isResident()) && (view === 'members' || view === 'analytics')) view = 'complaints';
   if (isCommittee() && view === 'notices') view = 'complaints';
   // All dashboard sub-views
-  const views = ['members','detail','analytics','notices','complaints','bills','facilities'];
+  const views = ['members','detail','analytics','notices','complaints','bills','pay-upi','facilities'];
   views.forEach(v => {
     document.getElementById('dash-'+v).classList.toggle('hidden', v !== view);
   });
@@ -2990,6 +3009,7 @@ async function loadMemberBillsSection(memberId) {
 
     const totalDue = memberBills.reduce((s,b) => s + parseFloat(b.balance_due), 0);
     const canPay = isAdmin() || isCommittee();
+    const showUpiPayButton = isResident();
     box.innerHTML = `
       <div class="detail-row"><span class="detail-key">Outstanding Balance</span>
         <span class="detail-val" style="color:${totalDue > 0 ? 'var(--red)' : 'var(--green)'}">₹${totalDue.toLocaleString('en-IN')}</span>
@@ -3012,7 +3032,8 @@ async function loadMemberBillsSection(memberId) {
               </div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span class="badge ${billStatusColors[b.status]}">${b.status}</span>
-                ${canPay && b.status !== 'paid' && b.status !== 'waived' ? `<button class="btn-sm btn-sm-outline" onclick="jumpToPayBill('${b.id}','${memberId}')">Pay</button>` : ''}
+                ${canPay && b.status !== 'paid' && b.status !== 'waived' ? `<button class="btn-sm btn-sm-outline" onclick="jumpToPayBill('${b.id}','${memberId}')">Record Payment</button>` : ''}
+                ${showUpiPayButton && b.status !== 'paid' && b.status !== 'waived' ? `<button class="btn-sm" style="background:var(--gold-bg,#fdf3d8);color:var(--amber,#8a6d1a);" onclick="showUpiPaymentPage('${b.id}', '${monthLabel}', '${parseFloat(b.balance_due).toLocaleString('en-IN')}')">Pay</button>` : ''}
               </div>
             </div>
             ${paymentRows}
@@ -3095,30 +3116,103 @@ async function jumpToPayBill(billId, memberId) {
   openPaymentModal(billId);
 }
 
+// Takes a resident to the (placeholder) online payment page for a specific
+// bill. Real UPI integration isn't built yet — this just shows where the
+// QR code / UPI ID will go once that's wired up.
+function showUpiPaymentPage(billId, monthLabel, balanceDue) {
+  document.getElementById('pay-upi-bill-summary').textContent = `${monthLabel} — ₹${balanceDue} due`;
+  showDash('pay-upi');
+}
+
 
 /* ════════════════════════════════════════════════════
    ANALYTICS — chart initialization and data refresh
+   Collected / Pending / Payment Status / 3-year Trend now pull from
+   REAL bill data. Expenses / Corpus Fund / expense breakdown remain
+   manual entry or file-upload — no expense-tracking backend exists yet.
    ════════════════════════════════════════════════════ */
-function initCharts() {
+
+// Converts a bill's billing_month (calendar date) into its position (0-11)
+// within the Indian financial-year month order: Apr=0, May=1, ..., Mar=11.
+function fyMonthIndex(billingMonthISO) {
+  const calendarMonth = new Date(billingMonthISO).getMonth(); // 0=Jan..11=Dec
+  return (calendarMonth - 3 + 12) % 12;
+}
+
+// Fetches real bills for one financial year and reduces them into
+// everything the charts need: totals scoped to the selected quarter/year,
+// a full 12-month collected breakdown, and status counts for the donut.
+// Fails safe (all zeros) rather than crashing the page if the fetch fails.
+async function loadBillingAnalyticsData(year, period) {
+  const fy = `${year}-${String(year + 1).slice(2)}`;
+  const zeroResult = {
+    collectedL: 0, pendingL: 0,
+    monthlyL: new Array(period === 'yearly' ? 12 : 3).fill(0),
+    statusCounts: { paid: 0, partial: 0, unpaid: 0, waived: 0 },
+  };
+  try {
+    const rows = await apiRequest(`/api/bills?financialYear=${fy}`);
+    const monthlyRupees = new Array(12).fill(0);
+    const statusCounts = { paid: 0, partial: 0, unpaid: 0, waived: 0 };
+    const qIdx = period === 'yearly' ? -1 : QUARTERS.indexOf(period);
+    let scopedCollected = 0, scopedPending = 0;
+
+    rows.forEach(b => {
+      const idx = fyMonthIndex(b.billing_month);
+      const paid = parseFloat(b.amount_paid) || 0;
+      const pending = parseFloat(b.balance_due) || 0;
+      monthlyRupees[idx] += paid;
+
+      const inScope = period === 'yearly' || Math.floor(idx / 3) === qIdx;
+      if (inScope) {
+        scopedCollected += paid;
+        scopedPending += pending;
+        if (statusCounts[b.status] !== undefined) statusCounts[b.status]++;
+      }
+    });
+
+    const monthlyL = period === 'yearly'
+      ? monthlyRupees.map(v => v / 100000)
+      : monthlyRupees.slice(qIdx * 3, qIdx * 3 + 3).map(v => v / 100000);
+
+    return { collectedL: scopedCollected / 100000, pendingL: scopedPending / 100000, monthlyL, statusCounts };
+  } catch (e) {
+    console.error('Billing analytics fetch failed:', e);
+    return zeroResult;
+  }
+}
+
+// Real 3-year collections trend — fetches each of the last 3 years' yearly totals.
+async function getRealTrendData() {
+  const years = AVAILABLE_YEARS.slice(-3);
+  const results = await Promise.all(years.map(y => loadBillingAnalyticsData(y, 'yearly')));
+  return results.map(r => r.collectedL);
+}
+function getTrendLabels() {
+  return AVAILABLE_YEARS.slice(-3).map(y => y + '–' + String(y+1).slice(2));
+}
+
+async function initCharts() {
   // Destroy existing instances before recreating (prevents duplicates)
   Object.values(chartInstances).forEach(c => c.destroy());
   chartInstances = {};
-  const data = getCurrentAnalyticsData();
+  const manualData = getCurrentAnalyticsData(); // expenses/corpus/expense-category breakdown only — still manual
+  const real = await loadBillingAnalyticsData(analyticsYear, analyticsPeriod);
   const monthsAll = ['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
   const qIdx = QUARTERS.indexOf(analyticsPeriod);
   const months = analyticsPeriod === 'yearly' ? monthsAll : monthsAll.slice(qIdx*3, qIdx*3+3);
   const expColors = ['#0f1f3d','#1a3060','#c9a84c','#2d7a4f','#7b5ea7','#b8870f','#5a5a6e'];
 
-  // Update KPI cards for the active period
-  document.getElementById('akpi-collected').textContent = '₹'+data.collected+'L';
-  document.getElementById('akpi-pending').textContent   = '₹'+data.pending+'L';
-  document.getElementById('akpi-expenses').textContent  = '₹'+data.expenses+'L';
-  document.getElementById('akpi-corpus').textContent    = '₹'+data.corpus+'L';
+  // Update KPI cards — Collected/Pending from real bills, Expenses/Corpus still manual
+  document.getElementById('akpi-collected').textContent = '₹'+real.collectedL.toFixed(1)+'L';
+  document.getElementById('akpi-pending').textContent   = '₹'+real.pendingL.toFixed(1)+'L';
+  document.getElementById('akpi-expenses').textContent  = '₹'+manualData.expenses+'L';
+  document.getElementById('akpi-corpus').textContent    = '₹'+manualData.corpus+'L';
 
-  // Collections bar chart (monthly for a quarter, or all 12 months for Yearly)
+  // Collections bar chart — now real, from actual bill payments
   chartInstances.collections = new Chart(document.getElementById('chart-collections'), {
     type: 'bar',
-    data: { labels: months, datasets: [{ label: 'Collection (₹L)', data: [...data.monthly], backgroundColor: '#0f1f3d', borderRadius: 4 }] },
+    data: { labels: months, datasets: [{ label: 'Collection (₹L)', data: real.monthlyL, backgroundColor: '#0f1f3d', borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { callback: v => '₹'+v+'L' } } } }
   });
 
@@ -3129,46 +3223,41 @@ function initCharts() {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }
   });
 
-  // Expense breakdown horizontal bar chart
+  // Expense breakdown horizontal bar chart — still manual entry / upload
   chartInstances.expense = new Chart(document.getElementById('chart-expense'), {
     type: 'bar',
-    data: { labels: EXPENSE_CATEGORY_LABELS, datasets: [{ label: '₹ Lakhs', data: [...data.expenses_cat], backgroundColor: expColors, borderRadius: 4 }] },
+    data: { labels: EXPENSE_CATEGORY_LABELS, datasets: [{ label: '₹ Lakhs', data: [...manualData.expenses_cat], backgroundColor: expColors, borderRadius: 4 }] },
     options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { ticks: { callback: v => '₹'+v+'L' } } } }
   });
 
-  // Payment status donut — computed from members data for the selected year/period
-  chartInstances.payment = buildPaymentChart();
+  // Payment status donut — now real, from actual bill statuses
+  chartInstances.payment = await buildPaymentChart();
 
-  // 3-year trend line chart — always yearly totals, most recent 3 years
+  // 3-year trend line chart — now real, yearly totals for the most recent 3 years
   chartInstances.trend = new Chart(document.getElementById('chart-trend'), {
     type: 'line',
-    data: { labels: getTrendLabels(), datasets: [{ label: 'Collections (₹L)', data: getTrendData(), borderColor: '#c9a84c', backgroundColor: 'rgba(201,168,76,0.08)', tension: 0.4, fill: true, pointBackgroundColor: '#c9a84c', pointRadius: 6, pointHoverRadius: 8 }] },
+    data: { labels: getTrendLabels(), datasets: [{ label: 'Collections (₹L)', data: await getRealTrendData(), borderColor: '#c9a84c', backgroundColor: 'rgba(201,168,76,0.08)', tension: 0.4, fill: true, pointBackgroundColor: '#c9a84c', pointRadius: 6, pointHoverRadius: 8 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false, ticks: { callback: v => '₹'+v+'L' } } } }
   });
 }
 
-// Builds/rebuilds the payment status donut using the Analytics page's own year/period selection
-function buildPaymentChart() {
-  const period = analyticsPeriod === 'yearly' ? 'yearly' : analyticsPeriod;
-  const counts = { paid: 0, pending: 0, defaulter: 0 };
-  members.forEach(m => {
-    const f = figuresFor(m, analyticsYear, period);
-    if (f.defaulting) counts.defaulter++;
-    else if (f.paid >= f.due) counts.paid++;
-    else counts.pending++;
-  });
+// Builds the payment status donut from real bill status counts
+// (Paid / Partial / Unpaid / Waived — the actual bill_status values).
+async function buildPaymentChart() {
+  const real = await loadBillingAnalyticsData(analyticsYear, analyticsPeriod);
+  const c = real.statusCounts;
   return new Chart(document.getElementById('chart-payment'), {
     type: 'doughnut',
-    data: { labels: ['Paid','Pending','Defaulter'], datasets: [{ data: [counts.paid, counts.pending, counts.defaulter], backgroundColor: ['#2d7a4f','#b8870f','#c0392b'], borderWidth: 0 }] },
+    data: { labels: ['Paid','Partial','Unpaid','Waived'], datasets: [{ data: [c.paid, c.partial, c.unpaid, c.waived], backgroundColor: ['#2d7a4f','#b8870f','#c0392b','#5a5a6e'], borderWidth: 0 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }
   });
 }
 
-// Refreshes only the payment status donut chart after member data changes
-function refreshPaymentChart() {
+// Refreshes only the payment status donut chart (e.g. after a payment is recorded)
+async function refreshPaymentChart() {
   if (!chartInstances.payment) return;
   chartInstances.payment.destroy();
-  chartInstances.payment = buildPaymentChart();
+  chartInstances.payment = await buildPaymentChart();
 }
 
 /* ════════════════════════════════════════════════════
