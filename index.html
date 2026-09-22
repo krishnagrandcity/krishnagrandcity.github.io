@@ -392,6 +392,8 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
 .btn-sm-outline:hover { background: var(--surface2); }
 .btn-sm-red { background: var(--red-bg); color: var(--red); }
 .btn-sm-red:hover { background: #f8d0cc; }
+.btn-sm-green { background: var(--green-bg); color: var(--green); border-color: var(--green-bg); }
+.btn-sm-green:hover { background: #c8ecd8; }
 
 /* ═══════════════════════════════════════════════════
    COMPLAINTS PAGE
@@ -1502,7 +1504,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <div class="table-wrap">
               <div style="overflow-x:auto;">
                 <table>
-                  <thead><tr><th>Resident</th><th>House</th><th>Event</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th><th id="hall-actions-th"></th></tr></thead>
+                  <thead><tr><th>Resident</th><th>House</th><th>Event</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th><th id="hall-actions-th">Actions</th></tr></thead>
                   <tbody id="hall-bookings-tbody">
                     <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>
                   </tbody>
@@ -3909,6 +3911,10 @@ function renderHallTable() {
   }
 
   const canManage = isAdmin() || isCommittee();
+
+  // Show or hide the Actions column header to match whether action buttons appear
+  const actionsTh = document.getElementById('hall-actions-th');
+  if (actionsTh) actionsTh.style.display = canManage ? '' : 'none';
 
   // Status badge colour
   const statusBadge = {
