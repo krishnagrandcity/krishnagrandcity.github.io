@@ -1502,9 +1502,9 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <div class="table-wrap">
               <div style="overflow-x:auto;">
                 <table>
-                  <thead><tr><th>Resident</th><th>House</th><th>Event</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th></tr></thead>
+                  <thead><tr><th>Resident</th><th>House</th><th>Event</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th><th id="hall-actions-th"></th></tr></thead>
                   <tbody id="hall-bookings-tbody">
-                    <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>
+                    <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2423,6 +2423,9 @@ function showDash(view) {
   if (view === 'notices')    loadNotices();
   if (view === 'complaints') loadComplaints();
   if (view === 'bills') loadBills();
+  // When facilities view opens, pre-load hall bookings in the background so
+  // the table is already populated by the time the user clicks the Hall tab
+  if (view === 'facilities') loadHallBookings();
 }
 
 // Resident-only entry point — jumps straight into their own profile
@@ -3721,6 +3724,8 @@ function showFacilityTab(tab, btn) {
   });
   document.querySelectorAll('.facility-tabs .ftab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  // Load live bookings from backend whenever the hall tab becomes visible
+  if (tab === 'hall') loadHallBookings();
 }
 
 /* ════════════════════════════════════════════════════
@@ -3788,9 +3793,11 @@ function renderGymTable() {
 
 
 /* ════════════════════════════════════════════════════
-   COMMUNITY HALL BOOKING — submit and render table
+   COMMUNITY HALL BOOKING — fully wired to /api/hall-bookings
    ════════════════════════════════════════════════════ */
-function submitHallBooking() {
+
+// Submit a new booking request to the backend
+async function submitHallBooking() {
   const name      = document.getElementById('hall-name').value.trim();
   const house     = document.getElementById('hall-house').value.trim();
   const phone     = document.getElementById('hall-phone').value.trim();
@@ -3799,45 +3806,161 @@ function submitHallBooking() {
   const guests    = document.getElementById('hall-guests').value;
   const startT    = document.getElementById('hall-start-time').value;
   const endT      = document.getElementById('hall-end-time').value;
-  const err = document.getElementById('hall-error');
-  const suc = document.getElementById('hall-success');
-  if (!name || !house || !phone || !eventType || !date || !guests || !startT || !endT) {
-    err.classList.remove('hidden'); suc.classList.add('hidden'); return;
-  }
-  err.classList.add('hidden');
-  hallBookings.push({
-    name, house, phone, eventType,
-    date: new Date(date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'}),
-    time: startT + ' – ' + endT,
-    guests, status: 'Pending Approval',
-    notes: document.getElementById('hall-notes').value.trim()
-  });
-  suc.classList.remove('hidden');
-  renderHallTable();
-  ['hall-name','hall-house','hall-phone','hall-guests','hall-notes'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('hall-event-type').value  = '';
-  document.getElementById('hall-date').value        = '';
-  document.getElementById('hall-start-time').value  = '';
-  document.getElementById('hall-end-time').value    = '';
-}
+  const notes     = document.getElementById('hall-notes').value.trim();
+  const errEl     = document.getElementById('hall-error');
+  const sucEl     = document.getElementById('hall-success');
 
-function renderHallTable() {
-  const tbody = document.getElementById('hall-bookings-tbody');
-  if (hallBookings.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>';
+  // Client-side required-field check
+  if (!name || !house || !phone || !eventType || !date || !guests || !startT || !endT) {
+    errEl.textContent = 'Please fill all required fields.';
+    errEl.classList.remove('hidden');
+    sucEl.classList.add('hidden');
     return;
   }
-  tbody.innerHTML = hallBookings.map(b => `
-    <tr>
-      <td style="font-weight:500">${b.name}</td>
-      <td>${b.house}</td>
-      <td>${b.eventType}</td>
-      <td>${b.date}</td>
-      <td style="font-size:13px">${b.time}</td>
-      <td>${b.guests}</td>
-      <td><span class="badge badge-amber">${b.status}</span></td>
-    </tr>
-  `).join('');
+  errEl.classList.add('hidden');
+  sucEl.classList.add('hidden');
+
+  try {
+    // Residents book for themselves (backend picks up memberId from JWT).
+    // Admin/committee pass houseNumber and backend resolves the member.
+    const body = {
+      eventName:      eventType,   // Using event type as the event name for simplicity
+      eventType,
+      eventDate:      date,
+      startTime:      startT,
+      endTime:        endT,
+      expectedGuests: guests,
+      phone,
+      specialRequests: notes,
+    };
+    // Staff booking on behalf of a resident — pass house number so backend can resolve
+    if (!isResident()) body.houseNumber = house;
+
+    await apiRequest('/api/hall-bookings', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    sucEl.classList.remove('hidden');
+
+    // Clear form
+    ['hall-name','hall-house','hall-phone','hall-guests','hall-notes'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('hall-event-type').value  = '';
+    document.getElementById('hall-date').value        = '';
+    document.getElementById('hall-start-time').value  = '';
+    document.getElementById('hall-end-time').value    = '';
+
+    // Reload the table so the new pending booking appears immediately
+    await loadHallBookings();
+  } catch (err) {
+    errEl.textContent = err.message || 'Could not submit booking. Please try again.';
+    errEl.classList.remove('hidden');
+  }
+}
+
+// Fetch all bookings from backend and re-render the table
+async function loadHallBookings() {
+  const tbody = document.getElementById('hall-bookings-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">Loading…</td></tr>';
+
+  try {
+    hallBookings = await apiRequest('/api/hall-bookings');
+    renderHallTable();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--red);">${err.message || 'Could not load bookings.'}</td></tr>`;
+  }
+}
+
+// Update a booking's status (admin/committee only)
+async function updateHallBookingStatus(id, newStatus) {
+  let rejectionReason = null;
+  if (newStatus === 'rejected') {
+    rejectionReason = prompt('Enter reason for rejection (required):');
+    if (!rejectionReason || !rejectionReason.trim()) return; // cancelled the prompt
+  }
+  if (newStatus === 'cancelled') {
+    if (!confirm('Are you sure you want to cancel this booking?')) return;
+  }
+
+  try {
+    const body = { newStatus };
+    if (rejectionReason) body.rejectionReason = rejectionReason.trim();
+    await apiRequest(`/api/hall-bookings/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    await loadHallBookings();
+  } catch (err) {
+    alert(err.message || 'Could not update booking status.');
+  }
+}
+
+// Render the bookings table from the hallBookings array
+function renderHallTable() {
+  const tbody = document.getElementById('hall-bookings-tbody');
+  if (!tbody) return;
+
+  if (!hallBookings || hallBookings.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>';
+    return;
+  }
+
+  const canManage = isAdmin() || isCommittee();
+
+  // Status badge colour
+  const statusBadge = {
+    pending:   'badge-amber',
+    confirmed: 'badge-green',
+    rejected:  'badge-red',
+    cancelled:'badge-red',
+    completed: 'badge-navy',
+  };
+  // Status display label
+  const statusLabel = {
+    pending:   'Pending Approval',
+    confirmed: 'Confirmed',
+    rejected:  'Rejected',
+    cancelled: 'Cancelled',
+    completed: 'Completed',
+  };
+
+  tbody.innerHTML = hallBookings.map(b => {
+    const dateStr = b.event_date
+      ? new Date(b.event_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})
+      : '—';
+    const timeStr = (b.start_time && b.end_time) ? `${b.start_time} – ${b.end_time}` : '—';
+    const badge   = statusBadge[b.status] || 'badge-navy';
+    const label   = statusLabel[b.status] || b.status;
+
+    // Action buttons — only shown to admin/committee, and only for actionable statuses
+    let actions = '';
+    if (canManage) {
+      if (b.status === 'pending') {
+        actions = `
+          <button class="btn-sm btn-sm-green" onclick="updateHallBookingStatus('${b.id}','confirmed')" title="Approve">✓ Approve</button>
+          <button class="btn-sm btn-sm-red"   onclick="updateHallBookingStatus('${b.id}','rejected')"  title="Reject">✕ Reject</button>`;
+      } else if (b.status === 'confirmed') {
+        actions = `
+          <button class="btn-sm btn-sm-outline" onclick="updateHallBookingStatus('${b.id}','completed')"  title="Mark completed">✓ Done</button>
+          <button class="btn-sm btn-sm-red"     onclick="updateHallBookingStatus('${b.id}','cancelled')"  title="Cancel">Cancel</button>`;
+      }
+    }
+
+    return `
+      <tr>
+        <td style="font-weight:500">${b.member_name || '—'}</td>
+        <td>${b.house_number || '—'}</td>
+        <td>${b.event_type || b.event_name || '—'}</td>
+        <td>${dateStr}</td>
+        <td style="font-size:12px">${timeStr}</td>
+        <td>${b.expected_guests}</td>
+        <td><span class="badge ${badge}">${label}</span></td>
+        ${canManage ? `<td style="white-space:nowrap">${actions}</td>` : ''}
+      </tr>`;
+  }).join('');
 }
 
 </script>
