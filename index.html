@@ -674,10 +674,25 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
           Members
         </button>
-        <!-- My Profile button — resident tier only -->
-        <button class="sb-btn perm-hidden" id="sb-myprofile" onclick="showMyProfile()">
+        <!-- My Profile / Home button — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-myprofile" onclick="showDash('resident-home')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           My Profile
+        </button>
+        <!-- My Bills — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-res-bills" onclick="showDash('res-bills')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          My Bills
+        </button>
+        <!-- My Complaints — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-res-complaints" onclick="showDash('res-complaints')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          My Complaints
+        </button>
+        <!-- My Bookings — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-res-bookings" onclick="showDash('res-bookings')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          My Bookings
         </button>
         <!-- Analytics section button — admin tier only -->
         <button class="sb-btn" id="sb-analytics" onclick="showDash('analytics')">
@@ -1049,7 +1064,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <h2 class="page-title">Pay Maintenance</h2>
             <p class="page-sub" id="pay-upi-bill-summary"></p>
           </div>
-          <button class="btn-cancel" onclick="showMyProfile()">← Back to Profile</button>
+          <button class="btn-cancel" onclick="isResident() ? showDash('res-bills') : showDash('bills')">← Back</button>
         </div>
 
         <div style="max-width:420px;margin:0 auto;text-align:center;background:var(--surface2);border-radius:12px;padding:32px;">
@@ -1515,6 +1530,152 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         </div>
 
       </div><!-- /dash-facilities -->
+
+      <!-- ══════════════════════════════════════════════
+           RESIDENT HOME — landing dashboard for residents
+           ══════════════════════════════════════════════ -->
+      <div id="dash-resident-home" class="hidden">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title" id="res-home-greeting">Welcome</h2>
+            <p class="page-sub" id="res-home-house"></p>
+          </div>
+        </div>
+        <div class="metrics-grid" style="margin-bottom:28px;">
+          <div class="metric-card" style="cursor:pointer;" onclick="showDash('res-bills')">
+            <div class="metric-lbl">Outstanding Balance</div>
+            <div class="metric-val" id="res-kpi-balance" style="color:var(--red);">—</div>
+            <div class="metric-delta" style="color:var(--text2);">Click to view bills</div>
+          </div>
+          <div class="metric-card" style="cursor:pointer;" onclick="showDash('res-complaints')">
+            <div class="metric-lbl">Open Complaints</div>
+            <div class="metric-val" id="res-kpi-complaints">—</div>
+            <div class="metric-delta" style="color:var(--text2);">Click to view</div>
+          </div>
+          <div class="metric-card" style="cursor:pointer;" onclick="showDash('res-bookings')">
+            <div class="metric-lbl">Upcoming Bookings</div>
+            <div class="metric-val" id="res-kpi-bookings">—</div>
+            <div class="metric-delta" style="color:var(--text2);">Click to view</div>
+          </div>
+        </div>
+        <div class="info-section" style="margin-bottom:20px;">
+          <h3>My Profile</h3>
+          <div id="res-profile-content" style="color:var(--text2);font-size:13px;">Loading...</div>
+        </div>
+        <div class="info-section">
+          <h3>Recent Bills</h3>
+          <div id="res-home-bills" style="color:var(--text2);font-size:13px;">Loading...</div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           RESIDENT BILLS VIEW
+           ══════════════════════════════════════════════ -->
+      <div id="dash-res-bills" class="hidden">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">My Maintenance Bills</h2>
+            <p class="page-sub">Your payment history and outstanding dues</p>
+          </div>
+        </div>
+        <div id="res-bills-banner" class="info-section" style="margin-bottom:20px;display:none;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="font-size:13px;color:var(--text2);margin-bottom:4px;">Total Outstanding</div>
+              <div class="metric-val" id="res-bills-total" style="color:var(--red);">0</div>
+            </div>
+            <p style="font-size:12px;color:var(--text2);max-width:360px;">To pay, visit the society office or use the UPI option on each unpaid bill. Contact the treasurer for queries.</p>
+          </div>
+        </div>
+        <div class="filter-tabs" style="margin-bottom:20px;">
+          <button class="ftab active" onclick="filterResBills('all',this)">All</button>
+          <button class="ftab" onclick="filterResBills('unpaid',this)">Unpaid</button>
+          <button class="ftab" onclick="filterResBills('partial',this)">Partial</button>
+          <button class="ftab" onclick="filterResBills('paid',this)">Paid</button>
+        </div>
+        <div id="res-bills-list" style="color:var(--text2);text-align:center;padding:48px;">Loading...</div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           RESIDENT COMPLAINTS VIEW
+           ══════════════════════════════════════════════ -->
+      <div id="dash-res-complaints" class="hidden">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">My Complaints</h2>
+            <p class="page-sub">Track and raise maintenance or service complaints</p>
+          </div>
+          <button class="btn-add btn-gold" onclick="toggleResComplaintForm()">+ Raise Complaint</button>
+        </div>
+        <div id="res-complaint-form" class="info-section hidden" style="margin-bottom:20px;">
+          <h3>New Complaint</h3>
+          <div class="form-group">
+            <label class="form-label">Category *</label>
+            <select class="form-select" id="rc-category">
+              <option value="">Select category</option>
+              <option value="plumbing">Plumbing</option>
+              <option value="electrical">Electrical</option>
+              <option value="lift">Lift / Elevator</option>
+              <option value="common_area">Common Area</option>
+              <option value="security">Security</option>
+              <option value="noise">Noise / Nuisance</option>
+              <option value="parking">Parking</option>
+              <option value="pest_control">Pest Control</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject *</label>
+            <input class="form-input" id="rc-subject" placeholder="Brief description of the issue" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Priority</label>
+            <select class="form-select" id="rc-priority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Details *</label>
+            <textarea class="form-textarea" id="rc-description" placeholder="Describe the issue in detail..." style="min-height:90px;"></textarea>
+          </div>
+          <div id="rc-error" class="error-msg hidden"></div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+            <button class="btn-cancel" onclick="toggleResComplaintForm()">Cancel</button>
+            <button class="btn-add btn-gold" id="rc-submit-btn" onclick="submitResComplaint()">Submit Complaint</button>
+          </div>
+        </div>
+        <div class="filter-tabs" style="margin-bottom:20px;">
+          <button class="ftab active" onclick="filterResComplaints('all',this)">All</button>
+          <button class="ftab" onclick="filterResComplaints('open',this)">Open</button>
+          <button class="ftab" onclick="filterResComplaints('in_progress',this)">In Progress</button>
+          <button class="ftab" onclick="filterResComplaints('resolved',this)">Resolved</button>
+          <button class="ftab" onclick="filterResComplaints('closed',this)">Closed</button>
+        </div>
+        <div id="res-complaints-list" style="color:var(--text2);text-align:center;padding:48px;">Loading...</div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════
+           RESIDENT BOOKINGS VIEW
+           ══════════════════════════════════════════════ -->
+      <div id="dash-res-bookings" class="hidden">
+        <div class="page-header">
+          <div>
+            <h2 class="page-title">My Hall Bookings</h2>
+            <p class="page-sub">Status of your Community Hall reservation requests</p>
+          </div>
+          <button class="btn-add btn-gold" onclick="showDash('facilities');setTimeout(()=>showFacilityTab('hall',document.querySelectorAll('.facility-tabs .ftab')[2]),150)">+ New Booking</button>
+        </div>
+        <div class="filter-tabs" style="margin-bottom:20px;">
+          <button class="ftab active" onclick="filterResBookings('all',this)">All</button>
+          <button class="ftab" onclick="filterResBookings('pending',this)">Pending</button>
+          <button class="ftab" onclick="filterResBookings('confirmed',this)">Confirmed</button>
+          <button class="ftab" onclick="filterResBookings('cancelled',this)">Cancelled / Rejected</button>
+        </div>
+        <div id="res-bookings-list" style="color:var(--text2);text-align:center;padding:48px;">Loading...</div>
+      </div>
 
     </main>
   </div>
@@ -2205,7 +2366,7 @@ function showPage(page) {
   if (page === 'dashboard') {
     if (!loggedIn) { showPage('login'); return; }
     if (currentUser.tier === 'resident') {
-      showMyProfile();
+      showDash('resident-home');
     } else if (currentUser.tier === 'committee') {
       showDash('complaints');
     } else {
@@ -2380,18 +2541,29 @@ function isResident()  { return currentUser && currentUser.tier === 'resident'; 
 
 function applyPermissions() {
   const admin = isAdmin(), committee = isCommittee(), resident = isResident();
-  // Sidebar sections — only admins get the full Members list & Analytics
+
+  // ── Admin-only sidebar items ──
   document.getElementById('sb-members').classList.toggle('perm-hidden', !admin);
   document.getElementById('sb-analytics').classList.toggle('perm-hidden', !admin);
+
+  // ── Resident-only sidebar items ──
+  // (all start with perm-hidden in HTML; we reveal them for residents only)
   document.getElementById('sb-myprofile').classList.toggle('perm-hidden', !resident);
-  // Committee tier is scoped to Complaints + Facilities only (no Notice Board, no Bills)
-  document.getElementById('sb-notices').classList.toggle('perm-hidden', committee);
-  document.getElementById('sb-bills').classList.toggle('perm-hidden', committee);
-  // Editing controls — admin only
+  document.getElementById('sb-res-bills').classList.toggle('perm-hidden', !resident);
+  document.getElementById('sb-res-complaints').classList.toggle('perm-hidden', !resident);
+  document.getElementById('sb-res-bookings').classList.toggle('perm-hidden', !resident);
+
+  // ── Shared management items — hide from residents ──
+  // Residents have their own scoped views; they must not see the admin table.
+  document.getElementById('sb-notices').classList.toggle('perm-hidden', resident || committee);
+  document.getElementById('sb-bills').classList.toggle('perm-hidden', resident || committee);
+  // Complaints sidebar goes to admin view — residents use sb-res-complaints
+  document.getElementById('sb-complaints').classList.toggle('perm-hidden', resident);
+
+  // ── Admin-only editing controls inside views ──
   const adminOnlyIds = ['btn-add-member'];
   adminOnlyIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('perm-hidden', !admin); });
   document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('perm-hidden', !admin));
-  // "Raise complaint" style actions stay open to everyone signed in — no change needed there.
 }
 
 
@@ -2404,38 +2576,52 @@ function showDash(view) {
   if ((isCommittee() || isResident()) && (view === 'members' || view === 'analytics')) view = 'complaints';
   if (isCommittee() && view === 'notices') view = 'complaints';
   // All dashboard sub-views
-  const views = ['members','detail','analytics','notices','complaints','bills','pay-upi','facilities'];
+  const views = [
+    'members','detail','analytics','notices','complaints','bills','pay-upi','facilities',
+    'resident-home','res-bills','res-complaints','res-bookings',
+  ];
   views.forEach(v => {
     document.getElementById('dash-'+v).classList.toggle('hidden', v !== view);
   });
+
   // Clear active state on all sidebar buttons
   document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+
   // Set active sidebar button
-  const sbMap = { members:'sb-members', analytics:'sb-analytics', notices:'sb-notices', complaints:'sb-complaints', bills:'sb-bills', facilities:'sb-facilities' };
+  const sbMap = {
+    'members':       'sb-members',
+    'analytics':     'sb-analytics',
+    'notices':       'sb-notices',
+    'complaints':    'sb-complaints',
+    'bills':         'sb-bills',
+    'facilities':    'sb-facilities',
+    'resident-home': 'sb-myprofile',
+    'res-bills':     'sb-res-bills',
+    'res-complaints':'sb-res-complaints',
+    'res-bookings':  'sb-res-bookings',
+  };
   if (sbMap[view]) document.getElementById(sbMap[view])?.classList.add('active');
 
-  // Lazy-initialize charts when analytics is opened
+  // ── Data loading hooks ──
   if (view === 'analytics') {
     populateAnalyticsYearSelect();
     if (!chartsInitialized) { setTimeout(initCharts, 150); chartsInitialized = true; }
     else initCharts();
   }
-  if (view === 'members') loadMembers();
-  // Render dynamic lists when switching to those views
-  if (view === 'notices')    loadNotices();
-  if (view === 'complaints') loadComplaints();
-  if (view === 'bills') loadBills();
-  // When facilities view opens, pre-load hall bookings in the background so
-  // the table is already populated by the time the user clicks the Hall tab
-  if (view === 'facilities') loadHallBookings();
+  if (view === 'members')        loadMembers();
+  if (view === 'notices')        loadNotices();
+  if (view === 'complaints')     loadComplaints();
+  if (view === 'bills')          loadBills();
+  if (view === 'facilities')     loadHallBookings();
+  if (view === 'resident-home')  loadResidentHome();
+  if (view === 'res-bills')      loadResBills();
+  if (view === 'res-complaints') loadResComplaints();
+  if (view === 'res-bookings')   loadResBookings();
 }
 
 // Resident-only entry point — jumps straight into their own profile
 function showMyProfile() {
-  if (!isResident()) return;
-  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('sb-myprofile').classList.add('active');
-  showMemberDetail(currentUser.memberId);
+  showDash('resident-home');
 }
 
 
@@ -3966,6 +4152,353 @@ function renderHallTable() {
         <td><span class="badge ${badge}">${label}</span></td>
         ${canManage ? `<td style="white-space:nowrap">${actions}</td>` : ''}
       </tr>`;
+  }).join('');
+}
+
+/* ════════════════════════════════════════════════════════
+   RESIDENT PORTAL — data stores, filters, and all functions
+   The backend already scopes /api/bills, /api/complaints,
+   /api/hall-bookings to the resident's own records when the
+   JWT role is 'resident' — no extra filtering needed on POST.
+   ════════════════════════════════════════════════════════ */
+
+let resBills      = [];
+let resComplaints = [];
+let resBookings   = [];
+let resBillsFilter      = 'all';
+let resComplaintsFilter = 'all';
+let resBookingsFilter   = 'all';
+
+// ── Resident Home ────────────────────────────────────────
+// Loads profile, summary KPIs and a 3-bill preview all in parallel.
+async function loadResidentHome() {
+  if (!currentUser || !currentUser.memberId) return;
+
+  // Greeting
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  document.getElementById('res-home-greeting').textContent = `${greeting}, ${currentUser.name.split(' ')[0]}`;
+  document.getElementById('res-home-house').textContent = `House ${currentUser.houseNumber || ''} · Krishna Grand City Society`;
+
+  // Load all three in parallel
+  const [memberData, billData, complaintData, bookingData] = await Promise.allSettled([
+    apiRequest(`/api/members/${currentUser.memberId}`),
+    apiRequest('/api/bills'),
+    apiRequest('/api/complaints'),
+    apiRequest('/api/hall-bookings?upcoming=true'),
+  ]);
+
+  // ── Profile card ──
+  const profBox = document.getElementById('res-profile-content');
+  if (memberData.status === 'fulfilled') {
+    const m = memberData.value;
+    const vehicles = [m.vehicle_1_reg, m.vehicle_2_reg].filter(Boolean).join(', ') || '—';
+    profBox.innerHTML = `
+      <div class="detail-rows">
+        <div class="detail-row"><span class="detail-key">House Number</span><span class="detail-val">${m.house_number}</span></div>
+        <div class="detail-row"><span class="detail-key">Unit Type</span><span class="detail-val">${getTypeLabel(m.unit_type)}</span></div>
+        <div class="detail-row"><span class="detail-key">Phone</span><span class="detail-val">${m.phone_primary}</span></div>
+        <div class="detail-row"><span class="detail-key">Email</span><span class="detail-val">${m.email || '—'}</span></div>
+        <div class="detail-row"><span class="detail-key">Vehicle(s)</span><span class="detail-val">${vehicles}</span></div>
+        ${m.emergency_contact_name ? `<div class="detail-row"><span class="detail-key">Emergency Contact</span><span class="detail-val">${m.emergency_contact_name}${m.emergency_contact_phone ? ' – ' + m.emergency_contact_phone : ''}</span></div>` : ''}
+      </div>`;
+  } else {
+    profBox.innerHTML = '<span style="color:var(--red);">Could not load profile.</span>';
+  }
+
+  // ── Bills KPI + preview ──
+  if (billData.status === 'fulfilled') {
+    resBills = billData.value;
+    const totalDue = resBills.reduce((s,b) => s + parseFloat(b.balance_due || 0), 0);
+    document.getElementById('res-kpi-balance').textContent =
+      '₹' + totalDue.toLocaleString('en-IN');
+    document.getElementById('res-kpi-balance').style.color =
+      totalDue > 0 ? 'var(--red)' : 'var(--green)';
+
+    const recentBills = [...resBills]
+      .sort((a,b) => new Date(b.billing_month) - new Date(a.billing_month))
+      .slice(0, 4);
+    const homeBillsBox = document.getElementById('res-home-bills');
+    if (recentBills.length === 0) {
+      homeBillsBox.innerHTML = '<p>No bills generated yet.</p>';
+    } else {
+      homeBillsBox.innerHTML = recentBills.map(b => {
+        const monthLabel = new Date(b.billing_month).toLocaleDateString('en-IN', {month:'short', year:'numeric'});
+        const due = parseFloat(b.balance_due);
+        return `<div class="detail-row">
+          <span class="detail-key">${monthLabel}</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span class="badge ${billStatusColors[b.status]}">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span>
+            ${due > 0 ? `<span style="font-weight:500;color:var(--red);">₹${due.toLocaleString('en-IN')} due</span>` : '<span style="color:var(--green);">Paid</span>'}
+            ${due > 0 ? `<button class="btn-sm" style="background:var(--gold-bg,#fdf3d8);color:var(--amber,#8a6d1a);" onclick="showUpiPaymentPage('${b.id}','${monthLabel}','${due.toLocaleString('en-IN')}')">Pay</button>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Complaints KPI ──
+  if (complaintData.status === 'fulfilled') {
+    resComplaints = complaintData.value;
+    const openCount = resComplaints.filter(c => c.status === 'open' || c.status === 'acknowledged' || c.status === 'in_progress').length;
+    document.getElementById('res-kpi-complaints').textContent = openCount;
+  }
+
+  // ── Bookings KPI ──
+  if (bookingData.status === 'fulfilled') {
+    resBookings = bookingData.value;
+    const upcomingCount = resBookings.filter(b => b.status === 'confirmed' || b.status === 'pending').length;
+    document.getElementById('res-kpi-bookings').textContent = upcomingCount;
+  }
+}
+
+// ── Resident Bills ───────────────────────────────────────
+async function loadResBills() {
+  const box = document.getElementById('res-bills-list');
+  box.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">Loading...</div>';
+  try {
+    resBills = await apiRequest('/api/bills');
+    renderResBills();
+  } catch (e) {
+    box.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red);">Could not load bills: ${e.message}</div>`;
+  }
+}
+
+function filterResBills(status, btn) {
+  resBillsFilter = status;
+  document.querySelectorAll('#dash-res-bills .ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderResBills();
+}
+
+function renderResBills() {
+  const box = document.getElementById('res-bills-list');
+  const banner = document.getElementById('res-bills-banner');
+  if (!box) return;
+
+  const filtered = resBills.filter(b => resBillsFilter === 'all' || b.status === resBillsFilter);
+
+  // Show outstanding banner
+  const totalDue = resBills.reduce((s,b) => s + parseFloat(b.balance_due || 0), 0);
+  if (totalDue > 0 && banner) {
+    banner.style.display = '';
+    document.getElementById('res-bills-total').textContent = '₹' + totalDue.toLocaleString('en-IN');
+  } else if (banner) {
+    banner.style.display = 'none';
+  }
+
+  if (filtered.length === 0) {
+    box.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">No bills found.</div>';
+    return;
+  }
+
+  box.innerHTML = filtered.map(b => {
+    const monthLabel = new Date(b.billing_month).toLocaleDateString('en-IN', {month:'long', year:'numeric'});
+    const due = parseFloat(b.balance_due || 0);
+    const paid = parseFloat(b.amount_paid || 0);
+    return `
+      <div class="complaint-card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-weight:600;font-size:15px;color:var(--navy);">${monthLabel}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px;">
+              Total due: ₹${parseFloat(b.total_amount_due).toLocaleString('en-IN')}
+              ${paid > 0 ? ` · Paid: ₹${paid.toLocaleString('en-IN')}` : ''}
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span class="badge ${billStatusColors[b.status]}">${b.status.charAt(0).toUpperCase()+b.status.slice(1)}</span>
+            ${due > 0 ? `<span style="font-weight:600;color:var(--red);">₹${due.toLocaleString('en-IN')} remaining</span>` : ''}
+            ${due > 0 ? `<button class="btn-sm" style="background:var(--gold-bg,#fdf3d8);color:var(--amber,#8a6d1a);" onclick="showUpiPaymentPage('${b.id}','${monthLabel}','${due.toLocaleString('en-IN')}')">Pay Now</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Resident Complaints ──────────────────────────────────
+async function loadResComplaints() {
+  const box = document.getElementById('res-complaints-list');
+  box.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">Loading...</div>';
+  try {
+    resComplaints = await apiRequest('/api/complaints');
+    renderResComplaints();
+  } catch (e) {
+    box.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red);">Could not load complaints: ${e.message}</div>`;
+  }
+}
+
+function filterResComplaints(status, btn) {
+  resComplaintsFilter = status;
+  document.querySelectorAll('#dash-res-complaints .ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderResComplaints();
+}
+
+function renderResComplaints() {
+  const box = document.getElementById('res-complaints-list');
+  if (!box) return;
+
+  const filtered = resComplaints.filter(c =>
+    resComplaintsFilter === 'all' || c.status === resComplaintsFilter
+  );
+
+  if (filtered.length === 0) {
+    box.innerHTML = `
+      <div style="text-align:center;padding:48px;color:var(--text2);">
+        <div style="font-size:32px;margin-bottom:12px;">✅</div>
+        <div>No complaints ${resComplaintsFilter === 'all' ? 'yet' : 'with this status'}.</div>
+        ${resComplaintsFilter === 'all' ? '<div style="margin-top:8px;font-size:13px;">Click "+ Raise Complaint" to report an issue.</div>' : ''}
+      </div>`;
+    return;
+  }
+
+  box.innerHTML = filtered.map(c => {
+    const dateStr = new Date(c.created_at).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+    const canRate = (c.status === 'resolved' || c.status === 'closed') && !c.resident_rating;
+    return `
+      <div class="complaint-card" style="margin-bottom:12px;">
+        <div class="complaint-top">
+          <div>
+            <div class="complaint-title">${c.title}</div>
+            <div class="complaint-meta">${c.complaint_number} · ${dateStr}${c.assigned_to_name ? ' · Assigned to: ' + c.assigned_to_name : ''}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <span class="badge badge-navy">${c.category.replace('_',' ').replace(/\b\w/g, ch => ch.toUpperCase())}</span>
+            <span class="badge ${priorityBadge[c.priority]}">${c.priority.charAt(0).toUpperCase()+c.priority.slice(1)}</span>
+            <span class="badge ${complaintStatusColors[c.status]}">${complaintStatusLabels[c.status]}</span>
+          </div>
+        </div>
+        <div class="complaint-body">${c.description}</div>
+        ${c.resolution_notes ? `<div class="complaint-body" style="color:var(--green);font-size:13px;margin-top:6px;"><strong>Resolution:</strong> ${c.resolution_notes}</div>` : ''}
+        ${c.resident_rating ? `<div style="font-size:13px;margin-top:6px;">Your rating: ${'⭐'.repeat(c.resident_rating)} ${c.resident_feedback ? '— ' + c.resident_feedback : ''}</div>` : ''}
+        ${canRate ? `<div class="complaint-footer"><button class="btn-sm btn-sm-outline" onclick="promptResRating('${c.id}')">⭐ Rate this repair</button></div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function toggleResComplaintForm() {
+  const form = document.getElementById('res-complaint-form');
+  form.classList.toggle('hidden');
+  if (!form.classList.contains('hidden')) {
+    document.getElementById('rc-subject').focus();
+  }
+}
+
+async function submitResComplaint() {
+  const cat  = document.getElementById('rc-category').value;
+  const subj = document.getElementById('rc-subject').value.trim();
+  const desc = document.getElementById('rc-description').value.trim();
+  const pri  = document.getElementById('rc-priority').value;
+  const err  = document.getElementById('rc-error');
+  const btn  = document.getElementById('rc-submit-btn');
+
+  if (!cat || !subj || !desc) {
+    err.textContent = 'Please fill in category, subject, and details.';
+    err.classList.remove('hidden');
+    return;
+  }
+  err.classList.add('hidden');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  try {
+    await apiRequest('/api/complaints', {
+      method: 'POST',
+      body: JSON.stringify({ title: subj, description: desc, category: cat, priority: pri }),
+    });
+    // Reset form and hide it
+    ['rc-subject','rc-description'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('rc-category').value = '';
+    document.getElementById('rc-priority').value = 'medium';
+    document.getElementById('res-complaint-form').classList.add('hidden');
+    // Reload list
+    await loadResComplaints();
+  } catch (e) {
+    err.textContent = e.message || 'Could not submit complaint. Please try again.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Submit Complaint';
+  }
+}
+
+async function promptResRating(id) {
+  const rating = prompt('Rate this repair from 1 (poor) to 5 (excellent):');
+  if (rating === null) return;
+  const num = parseInt(rating, 10);
+  if (!num || num < 1 || num > 5) { alert('Please enter a number from 1 to 5.'); return; }
+  const feedback = prompt('Any additional feedback? (optional — press OK to skip)') || '';
+  try {
+    await apiRequest(`/api/complaints/${id}/feedback`, {
+      method: 'POST',
+      body: JSON.stringify({ rating: num, feedback }),
+    });
+    await loadResComplaints();
+  } catch (e) {
+    alert('Could not submit rating: ' + e.message);
+  }
+}
+
+// ── Resident Bookings ────────────────────────────────────
+async function loadResBookings() {
+  const box = document.getElementById('res-bookings-list');
+  box.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">Loading...</div>';
+  try {
+    resBookings = await apiRequest('/api/hall-bookings');
+    renderResBookings();
+  } catch (e) {
+    box.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red);">Could not load bookings: ${e.message}</div>`;
+  }
+}
+
+function filterResBookings(filter, btn) {
+  resBookingsFilter = filter;
+  document.querySelectorAll('#dash-res-bookings .ftab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderResBookings();
+}
+
+function renderResBookings() {
+  const box = document.getElementById('res-bookings-list');
+  if (!box) return;
+
+  const filtered = resBookings.filter(b => {
+    if (resBookingsFilter === 'all') return true;
+    if (resBookingsFilter === 'cancelled') return b.status === 'cancelled' || b.status === 'rejected';
+    return b.status === resBookingsFilter;
+  });
+
+  if (filtered.length === 0) {
+    box.innerHTML = `
+      <div style="text-align:center;padding:48px;color:var(--text2);">
+        <div style="font-size:32px;margin-bottom:12px;">🎭</div>
+        <div>No bookings ${resBookingsFilter === 'all' ? 'yet' : 'with this status'}.</div>
+        ${resBookingsFilter === 'all' ? '<div style="margin-top:8px;font-size:13px;">Click "+ New Booking" to reserve the Community Hall.</div>' : ''}
+      </div>`;
+    return;
+  }
+
+  const statusBadge  = { pending:'badge-amber', confirmed:'badge-green', rejected:'badge-red', cancelled:'badge-red', completed:'badge-navy' };
+  const statusLabel  = { pending:'Pending Approval', confirmed:'Confirmed', rejected:'Rejected', cancelled:'Cancelled', completed:'Completed' };
+
+  box.innerHTML = filtered.map(b => {
+    const dateStr = new Date(b.event_date).toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+    const timeStr = b.start_time && b.end_time ? `${b.start_time} – ${b.end_time}` : '—';
+    return `
+      <div class="complaint-card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+          <div>
+            <div style="font-weight:600;font-size:15px;color:var(--navy);">${b.event_type || b.event_name || '—'}</div>
+            <div style="font-size:13px;color:var(--text2);margin-top:4px;">📅 ${dateStr}</div>
+            <div style="font-size:13px;color:var(--text2);">⏰ ${timeStr} · 👥 ${b.expected_guests} guests</div>
+            ${b.booking_number ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;">${b.booking_number}</div>` : ''}
+          </div>
+          <span class="badge ${statusBadge[b.status] || 'badge-navy'}">${statusLabel[b.status] || b.status}</span>
+        </div>
+        ${b.rejection_reason ? `<div style="font-size:13px;color:var(--red);margin-top:8px;"><strong>Reason:</strong> ${b.rejection_reason}</div>` : ''}
+        ${b.special_requests ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;"><strong>Your note:</strong> ${b.special_requests}</div>` : ''}
+      </div>`;
   }).join('');
 }
 
