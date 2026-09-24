@@ -788,9 +788,9 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         <!-- Unit type filter tabs -->
         <div class="filter-tabs">
           <button class="ftab active" onclick="filterMembers('all', this)">All</button>
-          <button class="ftab" onclick="filterMembers('2bhk', this)">2 BHK</button>
-          <button class="ftab" onclick="filterMembers('3bhk', this)">3 BHK</button>
-          <button class="ftab" onclick="filterMembers('rowhouse', this)">Row House</button>
+          <button class="ftab" onclick="filterMembers('2bhk', this)">2 BHK (Regal / A-1 / A-2)</button>
+          <button class="ftab" onclick="filterMembers('3bhk', this)">3 BHK (Kingston)</button>
+          <button class="ftab" onclick="filterMembers('rowhouse', this)">Row House (Antillia / Empress / Royale)</button>
         </div>
 
         <!-- Members table with search -->
@@ -1860,12 +1860,20 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
     </div>
 
     <div id="import-step-upload">
-      <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">
-        Upload an .xlsx file with columns: <code>full_name, house_number, unit_type,
-        phone_primary, phone_secondary, email, vehicle_1_reg, vehicle_2_reg,
-        emergency_contact_name, emergency_contact_phone</code>.
-        Only the first four are required.
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
+        Upload an .xlsx file with the columns below. <strong>unit_type is auto-detected from the house number</strong> — you do not need a unit_type column.
       </p>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.9;">
+        <strong style="color:var(--navy);">Required columns:</strong>
+        <code>full_name</code>, <code>house_number</code>, <code>phone_primary</code><br/>
+        <strong style="color:var(--navy);">Optional columns:</strong>
+        <code>phone_secondary</code>, <code>email</code>, <code>vehicle_1_reg</code>, <code>vehicle_2_reg</code>,
+        <code>emergency_contact_name</code>, <code>emergency_contact_phone</code><br/>
+        <strong style="color:var(--navy);">Unit type auto-detection:</strong><br/>
+        &nbsp;Row House → <code>Antillia-xx</code>, <code>Empress-xx</code>, <code>Royale-xx</code><br/>
+        &nbsp;2 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Regal-xx</code>, <code>A-1-xx</code>, <code>A-2-xx</code><br/>
+        &nbsp;3 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Kingston-xx</code>
+      </div>
       <input type="file" id="import-file-input" accept=".xlsx,.xls" onchange="handleImportFile(event)" />
       <div id="import-parse-error" class="error-msg hidden" style="margin-top:12px;"></div>
     </div>
@@ -1987,18 +1995,38 @@ function handleImportFile(event) {
         return;
       }
 
-      importParsedRows = rows.map(r => ({
-        fullName: String(r.full_name || '').trim(),
-        houseNumber: String(r.house_number || '').trim(),
-        unitType: String(r.unit_type || '').trim().toLowerCase(),
-        phonePrimary: String(r.phone_primary || '').trim(),
-        phoneSecondary: String(r.phone_secondary || '').trim() || null,
-        email: String(r.email || '').trim() || null,
-        vehicle1Reg: String(r.vehicle_1_reg || '').trim() || null,
-        vehicle2Reg: String(r.vehicle_2_reg || '').trim() || null,
-        emergencyContactName: String(r.emergency_contact_name || '').trim() || null,
-        emergencyContactPhone: String(r.emergency_contact_phone || '').trim() || null,
-      }));
+      importParsedRows = rows.map(r => {
+        const houseNumber = String(r.house_number || '').trim();
+
+        // Auto-detect unit_type from the block prefix in the house number.
+        // Supports: Antillia, Empress, Royale → rowhouse
+        //           Regal, A-1, A-2          → 2bhk
+        //           Kingston                 → 3bhk
+        // Falls back to the unit_type column if present, or flags as unknown.
+        function deriveUnitType(hn) {
+          const lower = hn.toLowerCase();
+          if (/^(antillia|empress|royale)[-\s]/i.test(hn)) return 'rowhouse';
+          if (/^(regal|a-1|a-2)[-\s]/i.test(hn))          return '2bhk';
+          if (/^kingston[-\s]/i.test(hn))                  return '3bhk';
+          // fallback: use explicit column if provided
+          const explicit = String(r.unit_type || '').trim().toLowerCase();
+          if (['2bhk','3bhk','rowhouse'].includes(explicit)) return explicit;
+          return ''; // will fail validation and be reported
+        }
+
+        return {
+          fullName:              String(r.full_name || '').trim(),
+          houseNumber,
+          unitType:              deriveUnitType(houseNumber),
+          phonePrimary:          String(r.phone_primary || '').trim(),
+          phoneSecondary:        String(r.phone_secondary || '').trim() || null,
+          email:                 String(r.email || '').trim() || null,
+          vehicle1Reg:           String(r.vehicle_1_reg || '').trim() || null,
+          vehicle2Reg:           String(r.vehicle_2_reg || '').trim() || null,
+          emergencyContactName:  String(r.emergency_contact_name || '').trim() || null,
+          emergencyContactPhone: String(r.emergency_contact_phone || '').trim() || null,
+        };
+      });
 
       renderImportPreview();
       document.getElementById('import-step-upload').classList.add('hidden');
@@ -2600,9 +2628,17 @@ function showMyProfile() {
 
 // Returns human-readable unit type label
 function getTypeLabel(t) {
-  return { '2bhk': '2 BHK', '3bhk': '3 BHK', 'rowhouse': 'Row House' }[t] || t;
+  return {
+    '2bhk':     '2 BHK (Regal / A-1 / A-2)',
+    '3bhk':     '3 BHK (Kingston)',
+    'rowhouse': 'Row House (Antillia / Empress / Royale)',
+  }[t] || t;
 }
 
+// Shorter label used in tight spaces like table badges
+function getTypeShortLabel(t) {
+  return { '2bhk': '2 BHK', '3bhk': '3 BHK', 'rowhouse': 'Row House' }[t] || t;
+}
 // Returns one of 8 avatar background colours based on member id.
 // Member ids are UUIDs (strings) from the real database, so we hash
 // the string rather than assuming it's a number.
@@ -2666,7 +2702,7 @@ function renderMembersTable() {
           </div>
         </div>
       </td>
-      <td><span class="badge badge-navy">${getTypeLabel(m.type)}</span></td>
+      <td><span class="badge badge-navy">${getTypeShortLabel(m.type)}</span></td>
       <td style="font-weight:500">${m.house}</td>
       <td style="color:var(--text2);font-size:13px">${m.phone}</td>
       <td><span class="badge ${m.isActive ? 'badge-green' : 'badge-navy'}">${m.isActive ? 'Active' : 'Inactive'}</span></td>
