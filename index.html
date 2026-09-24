@@ -2085,32 +2085,55 @@ function renderImportPreview() {
 }
 
 async function confirmImport() {
-  const btn = document.getElementById('import-confirm-btn');
-  btn.disabled = true;
-  btn.textContent = 'Importing…';
+  const btn     = document.getElementById('import-confirm-btn');
+  const BATCH   = 50; // send 50 rows at a time to avoid timeouts on Render free tier
+  btn.disabled  = true;
+
+  const totalRows   = importParsedRows.length;
+  let succeeded     = 0;
+  let allFailed     = [];
+  let batchCount    = Math.ceil(totalRows / BATCH);
 
   try {
-    const result = await apiRequest('/api/members/import', {
-      method: 'POST',
-      body: JSON.stringify({ members: importParsedRows }),
-    });
+    for (let i = 0; i < totalRows; i += BATCH) {
+      const batch     = importParsedRows.slice(i, i + BATCH);
+      const batchNum  = Math.floor(i / BATCH) + 1;
+      btn.textContent = `Importing… (${Math.min(i + BATCH, totalRows)} / ${totalRows})`;
 
+      const result = await apiRequest('/api/members/import', {
+        method: 'POST',
+        body: JSON.stringify({ members: batch }),
+      });
+
+      succeeded   += result.successCount;
+      allFailed    = allFailed.concat(result.failed || []);
+    }
+
+    // Show result
     document.getElementById('import-step-preview').classList.add('hidden');
     document.getElementById('import-step-result').classList.remove('hidden');
     document.getElementById('import-result-summary').innerHTML =
-      `✅ Imported <strong>${result.successCount}</strong> of ${result.totalRows} rows successfully.` +
-      (result.failedCount > 0 ? ` ⚠️ <strong>${result.failedCount}</strong> row(s) failed — see details below.` : '');
+      `✅ Imported <strong>${succeeded}</strong> of ${totalRows} rows successfully.` +
+      (allFailed.length > 0
+        ? ` ⚠️ <strong>${allFailed.length}</strong> row(s) failed — see details below.`
+        : ' 🎉 All rows imported successfully.');
 
-    document.getElementById('import-result-failures').innerHTML = result.failed.length === 0 ? '' :
-      '<table style="width:100%;"><thead><tr><th style="text-align:left;padding:4px;">Row</th><th style="text-align:left;padding:4px;">Reason</th></tr></thead><tbody>' +
-      result.failed.map(f => `<tr><td style="padding:4px;">${f.row}</td><td style="padding:4px;color:var(--red);">${f.error}</td></tr>`).join('') +
+    document.getElementById('import-result-failures').innerHTML =
+      allFailed.length === 0 ? '' :
+      '<table style="width:100%;margin-top:12px;"><thead><tr>' +
+      '<th style="text-align:left;padding:4px;">House</th>' +
+      '<th style="text-align:left;padding:4px;">Reason</th>' +
+      '</tr></thead><tbody>' +
+      allFailed.map(f =>
+        `<tr><td style="padding:4px;">${f.row}</td><td style="padding:4px;color:var(--red);">${f.error}</td></tr>`
+      ).join('') +
       '</tbody></table>';
 
-    if (typeof loadMembers === 'function') loadMembers(); // refresh the real member list if that's wired up
+    if (typeof loadMembers === 'function') loadMembers();
   } catch (e) {
-    alert('Import failed: ' + e.message);
+    alert('Import failed: ' + (e.message || 'Unknown error. Check your internet connection and try again.'));
   } finally {
-    btn.disabled = false;
+    btn.disabled    = false;
     btn.textContent = 'Confirm & Import';
   }
 }
