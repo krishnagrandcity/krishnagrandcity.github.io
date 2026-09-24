@@ -1870,7 +1870,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         <code>phone_secondary</code>, <code>email</code>, <code>vehicle_1_reg</code>, <code>vehicle_2_reg</code>,
         <code>emergency_contact_name</code>, <code>emergency_contact_phone</code><br/>
         <strong style="color:var(--navy);">Unit type auto-detection:</strong><br/>
-        &nbsp;Row House → <code>Antillia-xx</code>, <code>Empress-xx</code>, <code>Royale-xx</code><br/>
+        &nbsp;Row House → <code>Antilia-xx</code>, <code>Empress-xx</code>, <code>Royale-xx</code><br/>
         &nbsp;2 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Regal-xx</code>, <code>A-1-xx</code>, <code>A-2-xx</code><br/>
         &nbsp;3 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Kingston-xx</code>
       </div>
@@ -1885,7 +1885,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
       <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
         <table style="width:100%;font-size:12px;">
           <thead style="position:sticky;top:0;background:#f5f5f7;">
-            <tr><th style="padding:6px 8px;text-align:left;">House</th><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Phone</th></tr>
+            <tr><th style="padding:6px 8px;text-align:left;">Sheet</th><th style="padding:6px 8px;text-align:left;">House</th><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Phone</th></tr>
           </thead>
           <tbody id="import-preview-body"></tbody>
         </table>
@@ -1986,52 +1986,82 @@ function handleImportFile(event) {
   reader.onload = (e) => {
     try {
       const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-      if (rows.length === 0) {
-        errBox.textContent = 'That file has no data rows.';
+      // ── Unit type detection ──────────────────────────────────
+      // Matches the actual house number formats in the Excel file:
+      //   "Antilia - 01", "Royale - 14", "Empress - 24"  → rowhouse
+      //   "Regal 1", "Regal 2"                           → 2bhk
+      //   "A1 - 1", "A1 - 2"  (Block A-1)               → 2bhk
+      //   "A2 - 33"            (Block A-2)               → 2bhk
+      //   "Kingston - 01"                                → 3bhk
+      // Falls back to the sheet name if the prefix is not recognised.
+      function deriveUnitType(houseNumber, sheetName) {
+        const hn = houseNumber.trim();
+        const sn = (sheetName || '').toLowerCase();
+
+        // By house number prefix (primary method)
+        if (/^(antilia|antillia|empress|royale)\b/i.test(hn)) return 'rowhouse';
+        if (/^regal\b/i.test(hn))                             return '2bhk';
+        if (/^(a1|a-1)\b/i.test(hn))                         return '2bhk';
+        if (/^(a2|a-2)\b/i.test(hn))                         return '2bhk';
+        if (/^kingston\b/i.test(hn))                          return '3bhk';
+
+        // Fallback: derive from sheet name
+        if (sn.includes('row house'))                           return 'rowhouse';
+        if (sn.includes('2 bhk') || sn.includes('a - 1') ||
+            sn.includes('a - 2') || sn.includes('a-1') ||
+            sn.includes('a-2'))                                 return '2bhk';
+        if (sn.includes('3 bhk'))                              return '3bhk';
+
+        return ''; // unknown — will show as error in preview
+      }
+
+      // Sheets to skip — SHOP contains commercial units, not residents
+      const SKIP_SHEETS = ['shop'];
+
+      // Read ALL sheets and merge into one flat array
+      let allRows = [];
+      for (const sheetName of workbook.SheetNames) {
+        if (SKIP_SHEETS.includes(sheetName.toLowerCase().trim())) continue;
+
+        const sheet = workbook.Sheets[sheetName];
+        const rows  = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        rows.forEach(r => {
+          const houseNumber = String(r.house_number || '').trim();
+          const fullName    = String(r.full_name    || '').trim();
+          if (!fullName && !houseNumber) return; // skip blank rows
+
+          allRows.push({
+            fullName,
+            houseNumber,
+            unitType:              deriveUnitType(houseNumber, sheetName),
+            // Strip hyphens/spaces from phone numbers (e.g. "73549-20530" → "7354920530")
+            phonePrimary:          String(r.phone_primary           || '').trim().replace(/[-\s]/g, ''),
+            phoneSecondary:        String(r.phone_secondary         || '').trim().replace(/[-\s]/g, '') || null,
+            email:                 String(r.email                   || '').trim() || null,
+            vehicle1Reg:           String(r.vehicle_1_reg           || '').trim() || null,
+            vehicle2Reg:           String(r.vehicle_2_reg           || '').trim() || null,
+            emergencyContactName:  String(r.emergency_contact_name  || '').trim() || null,
+            emergencyContactPhone: String(r.emergency_contact_phone || '').trim() || null,
+            _sheet: sheetName, // shown in import preview
+          });
+        });
+      }
+
+      if (allRows.length === 0) {
+        errBox.textContent = 'No data rows found across all sheets.';
         errBox.classList.remove('hidden');
         return;
       }
 
-      importParsedRows = rows.map(r => {
-        const houseNumber = String(r.house_number || '').trim();
-
-        // Auto-detect unit_type from the block prefix in the house number.
-        // Supports: Antillia, Empress, Royale → rowhouse
-        //           Regal, A-1, A-2          → 2bhk
-        //           Kingston                 → 3bhk
-        // Falls back to the unit_type column if present, or flags as unknown.
-        function deriveUnitType(hn) {
-          const lower = hn.toLowerCase();
-          if (/^(antillia|empress|royale)[-\s]/i.test(hn)) return 'rowhouse';
-          if (/^(regal|a-1|a-2)[-\s]/i.test(hn))          return '2bhk';
-          if (/^kingston[-\s]/i.test(hn))                  return '3bhk';
-          // fallback: use explicit column if provided
-          const explicit = String(r.unit_type || '').trim().toLowerCase();
-          if (['2bhk','3bhk','rowhouse'].includes(explicit)) return explicit;
-          return ''; // will fail validation and be reported
-        }
-
-        return {
-          fullName:              String(r.full_name || '').trim(),
-          houseNumber,
-          unitType:              deriveUnitType(houseNumber),
-          phonePrimary:          String(r.phone_primary || '').trim(),
-          phoneSecondary:        String(r.phone_secondary || '').trim() || null,
-          email:                 String(r.email || '').trim() || null,
-          vehicle1Reg:           String(r.vehicle_1_reg || '').trim() || null,
-          vehicle2Reg:           String(r.vehicle_2_reg || '').trim() || null,
-          emergencyContactName:  String(r.emergency_contact_name || '').trim() || null,
-          emergencyContactPhone: String(r.emergency_contact_phone || '').trim() || null,
-        };
-      });
+      importParsedRows = allRows;
 
       renderImportPreview();
       document.getElementById('import-step-upload').classList.add('hidden');
       document.getElementById('import-step-preview').classList.remove('hidden');
     } catch (err) {
+      console.error('Import parse error:', err);
       errBox.textContent = 'Could not read that file. Make sure it is a valid .xlsx file.';
       errBox.classList.remove('hidden');
     }
@@ -2045,9 +2075,10 @@ function renderImportPreview() {
     const missing = !r.fullName || !r.houseNumber || !r.unitType || !r.phonePrimary;
     const rowStyle = missing ? 'background:#fdecea;' : '';
     return `<tr style="${rowStyle}">
+      <td style="padding:6px 8px;font-size:11px;color:var(--text2);">${r._sheet || ''}</td>
       <td style="padding:6px 8px;">${r.houseNumber || '<span style="color:var(--red)">missing</span>'}</td>
       <td style="padding:6px 8px;">${r.fullName || '<span style="color:var(--red)">missing</span>'}</td>
-      <td style="padding:6px 8px;">${r.unitType || '<span style="color:var(--red)">missing</span>'}</td>
+      <td style="padding:6px 8px;">${r.unitType || '<span style="color:var(--red)">unknown</span>'}</td>
       <td style="padding:6px 8px;">${r.phonePrimary || '<span style="color:var(--red)">missing</span>'}</td>
     </tr>`;
   }).join('');
