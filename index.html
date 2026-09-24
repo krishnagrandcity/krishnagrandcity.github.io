@@ -1509,16 +1509,18 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
               <button class="btn-add btn-gold" onclick="submitHallBooking()">Submit Booking Request</button>
             </div>
 
-            <!-- Upcoming hall bookings table -->
-            <div class="analytics-section-title">Upcoming Bookings</div>
-            <div class="table-wrap">
-              <div style="overflow-x:auto;">
-                <table>
-                  <thead><tr><th>Resident</th><th>House</th><th>Event</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th><th id="hall-actions-th">Actions</th></tr></thead>
-                  <tbody id="hall-bookings-tbody">
-                    <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>
-                  </tbody>
-                </table>
+            <!-- Upcoming hall bookings table — admin and committee only -->
+            <div class="admin-only">
+              <div class="analytics-section-title">Upcoming Bookings</div>
+              <div class="table-wrap">
+                <div style="overflow-x:auto;">
+                  <table>
+                    <thead><tr><th>Resident</th><th>House</th><th>Event</th><th>Date</th><th>Time</th><th>Guests</th><th>Status</th><th id="hall-actions-th">Actions</th></tr></thead>
+                    <tbody id="hall-bookings-tbody">
+                      <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">No bookings yet.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -4017,6 +4019,8 @@ async function submitHallBooking() {
 
 // Fetch all bookings from backend and re-render the table
 async function loadHallBookings() {
+  // Residents cannot see the bookings table — only admin/committee can.
+  if (isResident()) return;
   const tbody = document.getElementById('hall-bookings-tbody');
   if (!tbody) return;
   tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text2);">Loading…</td></tr>';
