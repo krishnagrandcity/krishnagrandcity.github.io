@@ -689,11 +689,6 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           My Complaints
         </button>
-        <!-- My Bookings — resident tier only -->
-        <button class="sb-btn perm-hidden" id="sb-res-bookings" onclick="showDash('res-bookings')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          My Bookings
-        </button>
         <!-- Analytics section button — admin tier only -->
         <button class="sb-btn" id="sb-analytics" onclick="showDash('analytics')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
@@ -1552,11 +1547,6 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <div class="metric-val" id="res-kpi-complaints">—</div>
             <div class="metric-delta" style="color:var(--text2);">Click to view</div>
           </div>
-          <div class="metric-card" style="cursor:pointer;" onclick="showDash('res-bookings')">
-            <div class="metric-lbl">Upcoming Bookings</div>
-            <div class="metric-val" id="res-kpi-bookings">—</div>
-            <div class="metric-delta" style="color:var(--text2);">Click to view</div>
-          </div>
         </div>
         <div class="info-section" style="margin-bottom:20px;">
           <h3>My Profile</h3>
@@ -1655,26 +1645,6 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           <button class="ftab" onclick="filterResComplaints('closed',this)">Closed</button>
         </div>
         <div id="res-complaints-list" style="color:var(--text2);text-align:center;padding:48px;">Loading...</div>
-      </div>
-
-      <!-- ══════════════════════════════════════════════
-           RESIDENT BOOKINGS VIEW
-           ══════════════════════════════════════════════ -->
-      <div id="dash-res-bookings" class="hidden">
-        <div class="page-header">
-          <div>
-            <h2 class="page-title">My Hall Bookings</h2>
-            <p class="page-sub">Status of your Community Hall reservation requests</p>
-          </div>
-          <button class="btn-add btn-gold" onclick="showDash('facilities');setTimeout(()=>showFacilityTab('hall',document.querySelectorAll('.facility-tabs .ftab')[2]),150)">+ New Booking</button>
-        </div>
-        <div class="filter-tabs" style="margin-bottom:20px;">
-          <button class="ftab active" onclick="filterResBookings('all',this)">All</button>
-          <button class="ftab" onclick="filterResBookings('pending',this)">Pending</button>
-          <button class="ftab" onclick="filterResBookings('confirmed',this)">Confirmed</button>
-          <button class="ftab" onclick="filterResBookings('cancelled',this)">Cancelled / Rejected</button>
-        </div>
-        <div id="res-bookings-list" style="color:var(--text2);text-align:center;padding:48px;">Loading...</div>
       </div>
 
     </main>
@@ -2551,7 +2521,6 @@ function applyPermissions() {
   document.getElementById('sb-myprofile').classList.toggle('perm-hidden', !resident);
   document.getElementById('sb-res-bills').classList.toggle('perm-hidden', !resident);
   document.getElementById('sb-res-complaints').classList.toggle('perm-hidden', !resident);
-  document.getElementById('sb-res-bookings').classList.toggle('perm-hidden', !resident);
 
   // ── Shared management items — hide from residents ──
   // Residents have their own scoped views; they must not see the admin table.
@@ -2578,7 +2547,7 @@ function showDash(view) {
   // All dashboard sub-views
   const views = [
     'members','detail','analytics','notices','complaints','bills','pay-upi','facilities',
-    'resident-home','res-bills','res-complaints','res-bookings',
+    'resident-home','res-bills','res-complaints',
   ];
   views.forEach(v => {
     document.getElementById('dash-'+v).classList.toggle('hidden', v !== view);
@@ -2598,7 +2567,6 @@ function showDash(view) {
     'resident-home': 'sb-myprofile',
     'res-bills':     'sb-res-bills',
     'res-complaints':'sb-res-complaints',
-    'res-bookings':  'sb-res-bookings',
   };
   if (sbMap[view]) document.getElementById(sbMap[view])?.classList.add('active');
 
@@ -2616,7 +2584,6 @@ function showDash(view) {
   if (view === 'resident-home')  loadResidentHome();
   if (view === 'res-bills')      loadResBills();
   if (view === 'res-complaints') loadResComplaints();
-  if (view === 'res-bookings')   loadResBookings();
 }
 
 // Resident-only entry point — jumps straight into their own profile
@@ -4164,10 +4131,8 @@ function renderHallTable() {
 
 let resBills      = [];
 let resComplaints = [];
-let resBookings   = [];
 let resBillsFilter      = 'all';
 let resComplaintsFilter = 'all';
-let resBookingsFilter   = 'all';
 
 // ── Resident Home ────────────────────────────────────────
 // Loads profile, summary KPIs and a 3-bill preview all in parallel.
@@ -4181,11 +4146,10 @@ async function loadResidentHome() {
   document.getElementById('res-home-house').textContent = `House ${currentUser.houseNumber || ''} · Krishna Grand City Society`;
 
   // Load all three in parallel
-  const [memberData, billData, complaintData, bookingData] = await Promise.allSettled([
+  const [memberData, billData, complaintData] = await Promise.allSettled([
     apiRequest(`/api/members/${currentUser.memberId}`),
     apiRequest('/api/bills'),
     apiRequest('/api/complaints'),
-    apiRequest('/api/hall-bookings?upcoming=true'),
   ]);
 
   // ── Profile card ──
@@ -4242,13 +4206,6 @@ async function loadResidentHome() {
     resComplaints = complaintData.value;
     const openCount = resComplaints.filter(c => c.status === 'open' || c.status === 'acknowledged' || c.status === 'in_progress').length;
     document.getElementById('res-kpi-complaints').textContent = openCount;
-  }
-
-  // ── Bookings KPI ──
-  if (bookingData.status === 'fulfilled') {
-    resBookings = bookingData.value;
-    const upcomingCount = resBookings.filter(b => b.status === 'confirmed' || b.status === 'pending').length;
-    document.getElementById('res-kpi-bookings').textContent = upcomingCount;
   }
 }
 
@@ -4440,67 +4397,6 @@ async function promptResRating(id) {
   }
 }
 
-// ── Resident Bookings ────────────────────────────────────
-async function loadResBookings() {
-  const box = document.getElementById('res-bookings-list');
-  box.innerHTML = '<div style="text-align:center;padding:48px;color:var(--text2);">Loading...</div>';
-  try {
-    resBookings = await apiRequest('/api/hall-bookings');
-    renderResBookings();
-  } catch (e) {
-    box.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red);">Could not load bookings: ${e.message}</div>`;
-  }
-}
-
-function filterResBookings(filter, btn) {
-  resBookingsFilter = filter;
-  document.querySelectorAll('#dash-res-bookings .ftab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderResBookings();
-}
-
-function renderResBookings() {
-  const box = document.getElementById('res-bookings-list');
-  if (!box) return;
-
-  const filtered = resBookings.filter(b => {
-    if (resBookingsFilter === 'all') return true;
-    if (resBookingsFilter === 'cancelled') return b.status === 'cancelled' || b.status === 'rejected';
-    return b.status === resBookingsFilter;
-  });
-
-  if (filtered.length === 0) {
-    box.innerHTML = `
-      <div style="text-align:center;padding:48px;color:var(--text2);">
-        <div style="font-size:32px;margin-bottom:12px;">🎭</div>
-        <div>No bookings ${resBookingsFilter === 'all' ? 'yet' : 'with this status'}.</div>
-        ${resBookingsFilter === 'all' ? '<div style="margin-top:8px;font-size:13px;">Click "+ New Booking" to reserve the Community Hall.</div>' : ''}
-      </div>`;
-    return;
-  }
-
-  const statusBadge  = { pending:'badge-amber', confirmed:'badge-green', rejected:'badge-red', cancelled:'badge-red', completed:'badge-navy' };
-  const statusLabel  = { pending:'Pending Approval', confirmed:'Confirmed', rejected:'Rejected', cancelled:'Cancelled', completed:'Completed' };
-
-  box.innerHTML = filtered.map(b => {
-    const dateStr = new Date(b.event_date).toLocaleDateString('en-IN', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
-    const timeStr = b.start_time && b.end_time ? `${b.start_time} – ${b.end_time}` : '—';
-    return `
-      <div class="complaint-card" style="margin-bottom:12px;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
-          <div>
-            <div style="font-weight:600;font-size:15px;color:var(--navy);">${b.event_type || b.event_name || '—'}</div>
-            <div style="font-size:13px;color:var(--text2);margin-top:4px;">📅 ${dateStr}</div>
-            <div style="font-size:13px;color:var(--text2);">⏰ ${timeStr} · 👥 ${b.expected_guests} guests</div>
-            ${b.booking_number ? `<div style="font-size:11px;color:var(--text3);margin-top:4px;">${b.booking_number}</div>` : ''}
-          </div>
-          <span class="badge ${statusBadge[b.status] || 'badge-navy'}">${statusLabel[b.status] || b.status}</span>
-        </div>
-        ${b.rejection_reason ? `<div style="font-size:13px;color:var(--red);margin-top:8px;"><strong>Reason:</strong> ${b.rejection_reason}</div>` : ''}
-        ${b.special_requests ? `<div style="font-size:12px;color:var(--text2);margin-top:6px;"><strong>Your note:</strong> ${b.special_requests}</div>` : ''}
-      </div>`;
-  }).join('');
-}
 
 </script>
 </body>
