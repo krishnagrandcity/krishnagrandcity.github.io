@@ -1196,8 +1196,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <div class="form-group">
               <label class="form-label">Financial Year *</label>
               <select class="form-select" id="gb-fy">
-                <option value="2025-26">2025–26</option>
-                <option value="2024-25">2024–25</option>
+                <!-- Populated by populateFYDropdown() — spans 100 years -->
               </select>
             </div>
           </div>
@@ -3206,6 +3205,35 @@ function openGenerateBillsModal() {
   document.getElementById('gb-result').classList.add('hidden');
   const now = new Date();
   document.getElementById('gb-month').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  populateFYDropdown('gb-fy');
+}
+
+// Populate a financial year <select> with 100 years:
+// 50 years back and 50 years forward from the current FY.
+// Indian financial year runs Apr–Mar, so FY for a given calendar
+// year Y is "Y-YY" (e.g. 2025-26).
+// The current FY is selected by default.
+function populateFYDropdown(selectId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+
+  const now       = new Date();
+  // Current FY start year: if we're in Jan–Mar, FY started last calendar year
+  const curFYStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+
+  const startYear = 2018;             // Society established 2018–19
+  const endYear   = curFYStart + 50;  // 50 years forward
+
+  sel.innerHTML = '';
+  for (let y = endYear; y >= startYear; y--) {
+    const value   = `${y}-${String(y + 1).slice(-2)}`;   // e.g. "2025-26"
+    const label   = `${y}–${y + 1}`;                      // e.g. "2025–2026"
+    const opt     = document.createElement('option');
+    opt.value     = value;
+    opt.textContent = label;
+    if (y === curFYStart) opt.selected = true;
+    sel.appendChild(opt);
+  }
 }
 function closeGenerateBillsModal() { document.getElementById('generate-bills-modal').classList.add('hidden'); }
 
