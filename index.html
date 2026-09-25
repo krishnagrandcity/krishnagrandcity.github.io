@@ -690,9 +690,9 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           My Complaints
         </button>
         <!-- Analytics section button — admin tier only -->
-        <button class="sb-btn" id="sb-analytics" onclick="showDash('analytics')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-          Analytics
+        <button class="sb-btn" id="sb-finances" onclick="showDash('finances')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          Finances
         </button>
       </div>
       <div class="sidebar-section">
@@ -834,127 +834,215 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
            Note: Payment-status donut is computed from members[];
            collection/expense data is entered via the input panel below.
            ══════════════════════════════ -->
-      <div id="dash-analytics" class="hidden">
+      <!-- ══════════════════════════════════════════════════════
+           FINANCES VIEW
+           Section 1: Expense input form + XLSX upload
+           Section 2: Summary KPI cards (live from DB)
+           ══════════════════════════════════════════════════════ -->
+      <div id="dash-finances" class="hidden">
         <div class="page-header">
           <div>
-            <h2 class="page-title">Analytics &amp; Reports</h2>
-            <p class="page-sub">Financial and operational metrics — upload a data file, browse by quarter or view the full year</p>
+            <h2 class="page-title">Finances</h2>
+            <p class="page-sub">Record society expenses and view financial summaries</p>
           </div>
-          <button class="btn-add btn-gold" id="btn-analytics-upload" onclick="toggleAnalyticsUpload()">⬆ Upload Data File</button>
+          <!-- Upload xlsx button -->
+          <button class="btn-add" onclick="toggleFinanceUpload()" style="background:var(--surface);color:var(--navy);border:1px solid var(--border2);">
+            ⬆ Import Expenses (XLSX)
+          </button>
         </div>
 
-        <!-- Period bar: quarter/yearly tabs + year dropdown -->
-        <div class="period-bar">
-          <div class="period-tabs" id="analytics-period-tabs">
-            <button class="ptab" onclick="setAnalyticsPeriod('Q1', this)">Q1</button>
-            <button class="ptab" onclick="setAnalyticsPeriod('Q2', this)">Q2</button>
-            <button class="ptab" onclick="setAnalyticsPeriod('Q3', this)">Q3</button>
-            <button class="ptab" onclick="setAnalyticsPeriod('Q4', this)">Q4</button>
-            <button class="ptab active" onclick="setAnalyticsPeriod('yearly', this)">Yearly (Cumulative)</button>
+        <!-- ── XLSX UPLOAD PANEL ── -->
+        <div id="finance-upload-panel" class="info-section hidden" style="margin-bottom:20px;">
+          <h3>Import Expenses from Excel</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+            Upload an .xlsx file with columns:
+            <code>date</code>, <code>category</code>, <code>description</code>,
+            <code>payee_name</code>, <code>amount</code>, <code>payment_mode</code>.
+            Optional: <code>bill_number</code>, <code>gst_number</code>, <code>gst_amount</code>.
+          </p>
+          <div class="upload-box" onclick="document.getElementById('finance-file-input').click()" style="border:2px dashed var(--border2);border-radius:10px;padding:24px;text-align:center;cursor:pointer;">
+            <div style="font-size:28px;margin-bottom:8px;">📂</div>
+            <div style="font-size:14px;font-weight:500;color:var(--navy);">Click to select .xlsx file</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:4px;">Expenses will be previewed before import</div>
+            <input type="file" id="finance-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleFinanceFile(this)" />
           </div>
-          <select class="year-select" id="analytics-year-select" onchange="onAnalyticsYearChange(this.value)"></select>
+          <div id="finance-upload-status" style="margin-top:12px;font-size:13px;"></div>
         </div>
 
-        <!-- XLSX / CSV upload panel — replaces manual typing as the primary data-entry path -->
-        <div id="analytics-upload-panel" class="data-input-panel hidden">
-          <h3>⬆ Upload Financial Data (.xlsx / .csv)</h3>
-          <p>Upload a spreadsheet for the selected year and it will populate the charts below automatically — no manual typing needed. Expected columns: <code>Year</code>, <code>Quarter</code> (Q1–Q4), <code>Metric</code>, <code>Value</code>. Metric can be a KPI (<code>Collected</code>, <code>Pending</code>, <code>Expenses</code>, <code>Corpus</code>), a month name (e.g. <code>Apr</code>), or an expense category (e.g. <code>Security</code>). Rows with <code>Quarter</code> left blank are treated as whole-year totals.</p>
-          <div class="upload-box" onclick="document.getElementById('analytics-file-input').click()">
-            <div class="upload-box-icon">📄</div>
-            <div class="upload-box-label">Click to choose a .xlsx or .csv file</div>
-            <div class="upload-box-hint">Or drag and drop it here</div>
-            <input type="file" id="analytics-file-input" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleAnalyticsFile(this)" />
+        <!-- ── SUMMARY KPI CARDS ── -->
+        <div class="metrics-grid" style="margin-bottom:24px;" id="finance-kpi-grid">
+          <div class="metric-card">
+            <div class="metric-lbl">Total Maintenance Collected</div>
+            <div class="metric-val" id="fin-kpi-collected" style="color:var(--green);">—</div>
+            <div class="metric-delta" id="fin-kpi-collected-sub" style="color:var(--text2);"></div>
           </div>
-          <div id="analytics-upload-status" style="margin-top:14px;"></div>
-          <button class="upload-toggle-link" onclick="toggleAnalyticsManual()">Prefer typing numbers in by hand? Switch to manual entry →</button>
-        </div>
-
-        <!-- NOTE: Payment status donut IS auto-computed from members data.
-             Monthly collections, expenses, corpus, and trend data come from
-             the uploaded file (or manual entry below) per year/quarter. -->
-        <div id="analytics-input-panel" class="data-input-panel hidden">
-          <h3>📋 Manual Entry (Advanced)</h3>
-          <p id="manual-entry-scope-note">Enter figures for a single quarter — pick Q1–Q4 above first. "Yearly" is always the automatic sum of the four quarters, so it can't be edited directly here.</p>
-
-          <!-- Summary KPI inputs -->
-          <div class="analytics-section-title">Quarter Summary (₹ Lakhs)</div>
-          <div class="analytics-input-grid">
-            <div class="form-group"><label class="form-label">Total Collected (₹L)</label><input class="form-input" id="ai-collected" type="number" step="0.1" placeholder="e.g. 18.5" /></div>
-            <div class="form-group"><label class="form-label">Pending Dues (₹L)</label><input class="form-input" id="ai-pending" type="number" step="0.1" placeholder="e.g. 1.2" /></div>
-            <div class="form-group"><label class="form-label">Total Expenses (₹L)</label><input class="form-input" id="ai-expenses" type="number" step="0.1" placeholder="e.g. 15.3" /></div>
-            <div class="form-group"><label class="form-label">Corpus Fund (₹L)</label><input class="form-input" id="ai-corpus" type="number" step="0.1" placeholder="e.g. 8.0" /></div>
+          <div class="metric-card">
+            <div class="metric-lbl">Expenses — This Month</div>
+            <div class="metric-val" id="fin-kpi-month-exp" style="color:var(--red);">—</div>
+            <div class="metric-delta" id="fin-kpi-month-label" style="color:var(--text2);"></div>
           </div>
-
-          <!-- Monthly collection breakdown — 3 months matching the selected quarter -->
-          <div class="analytics-section-title" id="monthly-grid-title">Monthly Collections (₹ Lakhs)</div>
-          <div class="monthly-grid" id="monthly-grid-container"></div>
-
-          <!-- Expense breakdown by category -->
-          <div class="analytics-section-title">Expense Categories (₹ Lakhs)</div>
-          <div class="analytics-input-grid">
-            <div class="form-group"><label class="form-label">Security</label><input class="form-input" id="ex-0" type="number" step="0.1" placeholder="14.2" /></div>
-            <div class="form-group"><label class="form-label">Maintenance</label><input class="form-input" id="ex-1" type="number" step="0.1" placeholder="12.8" /></div>
-            <div class="form-group"><label class="form-label">Landscaping</label><input class="form-input" id="ex-2" type="number" step="0.1" placeholder="8.4" /></div>
-            <div class="form-group"><label class="form-label">Electricity</label><input class="form-input" id="ex-3" type="number" step="0.1" placeholder="9.1" /></div>
-            <div class="form-group"><label class="form-label">Water</label><input class="form-input" id="ex-4" type="number" step="0.1" placeholder="5.3" /></div>
-            <div class="form-group"><label class="form-label">Admin</label><input class="form-input" id="ex-5" type="number" step="0.1" placeholder="4.2" /></div>
-            <div class="form-group"><label class="form-label">Reserves</label><input class="form-input" id="ex-6" type="number" step="0.1" placeholder="7.5" /></div>
+          <div class="metric-card">
+            <div class="metric-lbl">Expenses — This Year</div>
+            <div class="metric-val" id="fin-kpi-year-exp" style="color:var(--amber);">—</div>
+            <div class="metric-delta" id="fin-kpi-year-label" style="color:var(--text2);"></div>
           </div>
-
-          <div class="modal-actions" style="margin-top:0">
-            <button class="btn-cancel" onclick="toggleAnalyticsInput()">Cancel</button>
-            <button class="btn-add btn-gold" onclick="applyAnalyticsData()">Apply & Refresh Charts</button>
+          <div class="metric-card">
+            <div class="metric-lbl">Net Surplus / Deficit</div>
+            <div class="metric-val" id="fin-kpi-surplus">—</div>
+            <div class="metric-delta" style="color:var(--text2);">Collected minus yearly expenses</div>
           </div>
         </div>
 
-        <!-- Analytics KPI metric cards (updated by applyAnalyticsData) -->
-        <div class="metrics-grid" style="margin-bottom:28px;">
-          <div class="metric-card"><div class="metric-lbl">Total Collected</div><div class="metric-val" id="akpi-collected">₹74.2L</div><div class="metric-delta delta-up">↑ 8.3% vs last year</div></div>
-          <div class="metric-card"><div class="metric-lbl">Pending Dues</div><div class="metric-val" id="akpi-pending">₹4.8L</div><div class="metric-delta delta-dn">↑ 2.1% vs last month</div></div>
-          <div class="metric-card"><div class="metric-lbl">Total Expenses</div><div class="metric-val" id="akpi-expenses">₹61.5L</div><div class="metric-delta delta-up">↓ 3.2% vs last year</div></div>
-          <div class="metric-card"><div class="metric-lbl">Corpus Fund</div><div class="metric-val" id="akpi-corpus">₹32.1L</div><div class="metric-delta delta-up">↑ 12% vs last year</div></div>
-        </div>
+        <!-- ── ADD EXPENSE FORM ── -->
+        <div class="info-section" style="margin-bottom:20px;">
+          <h3 style="margin-bottom:18px;">Record New Expense</h3>
 
-        <!-- Chart cards grid -->
-        <div class="charts-grid">
-          <div class="chart-card">
-            <div class="chart-title">Monthly Collections (₹ Lakhs)</div>
-            <div class="chart-sub">Apr 2024 – Mar 2025 · enter values above to update</div>
-            <div style="position:relative;height:220px;"><canvas id="chart-collections"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Unit Type Distribution</div>
-            <div class="chart-sub">Computed from members data</div>
-            <div style="display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--text2);">
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#0f1f3d;display:inline-block;"></span>2 BHK</span>
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#c9a84c;display:inline-block;"></span>3 BHK</span>
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#2d7a4f;display:inline-block;"></span>Row House</span>
+          <div class="form-row">
+            <!-- Date picker -->
+            <div class="form-group">
+              <label class="form-label">Date *</label>
+              <input class="form-input" type="date" id="fin-date" />
             </div>
-            <div style="position:relative;height:200px;"><canvas id="chart-units"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Expense Breakdown</div>
-            <div class="chart-sub">Enter expense category figures above to update</div>
-            <div style="position:relative;height:280px;"><canvas id="chart-expense"></canvas></div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Payment Status Overview</div>
-            <div class="chart-sub">Computed from members data — paid vs pending vs defaulter</div>
-            <div style="display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:var(--text2);">
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#2d7a4f;display:inline-block;"></span>Paid</span>
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#b8870f;display:inline-block;"></span>Pending</span>
-              <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#c0392b;display:inline-block;"></span>Defaulter</span>
+            <!-- Category dropdown with "Add category" option -->
+            <div class="form-group">
+              <label class="form-label">Category *</label>
+              <div style="display:flex;gap:8px;">
+                <select class="form-select" id="fin-category" style="flex:1;">
+                  <option value="">Select category</option>
+                  <option value="Lift Maintenance">Lift Maintenance</option>
+                  <option value="Labour Salary">Labour Salary</option>
+                  <option value="Security Salary">Security Salary</option>
+                  <option value="Housekeeping Salary">Housekeeping Salary</option>
+                  <option value="Electricity">Electricity</option>
+                  <option value="Water">Water</option>
+                  <option value="Generator Maintenance">Generator Maintenance</option>
+                  <option value="Plumbing Repairs">Plumbing Repairs</option>
+                  <option value="Electrical Repairs">Electrical Repairs</option>
+                  <option value="Pest Control">Pest Control</option>
+                  <option value="Garden / Landscaping">Garden / Landscaping</option>
+                  <option value="CCTV / Security System">CCTV / Security System</option>
+                  <option value="Painting">Painting</option>
+                  <option value="Stationery">Stationery</option>
+                  <option value="Bank Charges">Bank Charges</option>
+                  <option value="Audit Fees">Audit Fees</option>
+                  <option value="Festival / Events">Festival / Events</option>
+                  <option value="Others">Others</option>
+                </select>
+                <button class="btn-add" onclick="addFinanceCategory()" title="Add new category" style="padding:0 12px;flex-shrink:0;">+</button>
+              </div>
             </div>
-            <div style="position:relative;height:200px;"><canvas id="chart-payment"></canvas></div>
           </div>
-          <!-- Trend chart spans full width -->
-          <div class="chart-card" style="grid-column: 1 / -1;">
-            <div class="chart-title">Collection Trend – 3 Years</div>
-            <div class="chart-sub">Total annual maintenance collected (₹ Lakhs) · enter values above to update</div>
-            <div style="position:relative;height:200px;"><canvas id="chart-trend"></canvas></div>
+
+          <div class="form-group">
+            <label class="form-label">Description *</label>
+            <input class="form-input" id="fin-description" placeholder="Brief description of the expense" />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Payee Name *</label>
+              <input class="form-input" id="fin-payee" placeholder="Vendor / contractor name" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">GST Number <span style="font-weight:400;color:var(--text2);">(optional)</span></label>
+              <input class="form-input" id="fin-gst-number" placeholder="e.g. 22AAAAA0000A1Z5" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Amount (₹) *</label>
+              <input class="form-input" type="number" id="fin-amount" placeholder="e.g. 12500" min="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">GST Amount (₹) <span style="font-weight:400;color:var(--text2);">(optional)</span></label>
+              <input class="form-input" type="number" id="fin-gst-amount" placeholder="e.g. 1125" min="0" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bill Number <span style="font-weight:400;color:var(--text2);">(optional)</span></label>
+              <input class="form-input" id="fin-bill-number" placeholder="Vendor invoice / bill no." />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Method *</label>
+              <select class="form-select" id="fin-payment-mode">
+                <option value="">Select method</option>
+                <option value="cash">Cash</option>
+                <option value="cheque">Cheque</option>
+                <option value="online_upi">UPI</option>
+                <option value="online_neft">NEFT</option>
+                <option value="online_rtgs">RTGS</option>
+                <option value="demand_draft">Demand Draft</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Auto-generated voucher number preview -->
+          <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--text2);margin-bottom:16px;">
+            🧾 Voucher / Receipt No: <strong id="fin-voucher-preview" style="color:var(--navy);">Will be auto-generated on save (e.g. VCH-2025-0001)</strong>
+          </div>
+
+          <div id="fin-form-error" class="error-msg hidden"></div>
+          <div id="fin-form-success" class="success-msg hidden"></div>
+
+          <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button class="btn-cancel" onclick="resetFinanceForm()">Clear</button>
+            <button class="btn-add btn-gold" id="fin-submit-btn" onclick="submitExpense()">Save Expense</button>
           </div>
         </div>
-      </div>
+
+        <!-- ── EXPENSES TABLE ── -->
+        <div class="table-wrap">
+          <div class="table-top">
+            <div style="font-size:15px;font-weight:600;color:var(--navy);">Expense Records</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <!-- Month + year filter -->
+              <select class="form-select" id="fin-filter-month" onchange="loadExpenses()" style="width:130px;padding:7px 10px;font-size:13px;">
+                <option value="">All Months</option>
+                <option value="01">January</option>
+                <option value="02">February</option>
+                <option value="03">March</option>
+                <option value="04">April</option>
+                <option value="05">May</option>
+                <option value="06">June</option>
+                <option value="07">July</option>
+                <option value="08">August</option>
+                <option value="09">September</option>
+                <option value="10">October</option>
+                <option value="11">November</option>
+                <option value="12">December</option>
+              </select>
+              <select class="form-select" id="fin-filter-year" onchange="loadExpenses()" style="width:100px;padding:7px 10px;font-size:13px;"></select>
+              <select class="form-select" id="fin-filter-category" onchange="loadExpenses()" style="width:170px;padding:7px 10px;font-size:13px;">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+          </div>
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Voucher No.</th>
+                  <th>Date</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Payee</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th class="admin-only">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="expenses-tbody">
+                <tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text2);">Loading expenses...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="expenses-total-row" style="padding:12px 16px;font-size:14px;font-weight:600;color:var(--navy);border-top:1px solid var(--border);text-align:right;"></div>
+        </div>
+
+      </div><!-- /dash-finances -->
 
       <!-- ══════════════════════════════
            NOTICE BOARD VIEW
@@ -2598,7 +2686,7 @@ function applyPermissions() {
 
   // ── Admin-only sidebar items ──
   document.getElementById('sb-members').classList.toggle('perm-hidden', !admin);
-  document.getElementById('sb-analytics').classList.toggle('perm-hidden', !admin);
+  document.getElementById('sb-finances').classList.toggle('perm-hidden', !admin);
 
   // ── Resident-only sidebar items ──
   // (all start with perm-hidden in HTML; we reveal them for residents only)
@@ -2630,7 +2718,7 @@ function showDash(view) {
   if (isCommittee() && view === 'notices') view = 'complaints';
   // All dashboard sub-views
   const views = [
-    'members','detail','analytics','notices','complaints','bills','pay-upi','facilities',
+    'members','detail','finances','notices','complaints','bills','pay-upi','facilities',
     'resident-home','res-bills','res-complaints',
   ];
   views.forEach(v => {
@@ -2643,7 +2731,7 @@ function showDash(view) {
   // Set active sidebar button
   const sbMap = {
     'members':       'sb-members',
-    'analytics':     'sb-analytics',
+    'finances':      'sb-finances',
     'notices':       'sb-notices',
     'complaints':    'sb-complaints',
     'bills':         'sb-bills',
@@ -2655,11 +2743,7 @@ function showDash(view) {
   if (sbMap[view]) document.getElementById(sbMap[view])?.classList.add('active');
 
   // ── Data loading hooks ──
-  if (view === 'analytics') {
-    populateAnalyticsYearSelect();
-    if (!chartsInitialized) { setTimeout(initCharts, 150); chartsInitialized = true; }
-    else initCharts();
-  }
+  if (view === 'finances') loadFinances();
   if (view === 'members')        loadMembers();
   if (view === 'notices')        loadNotices();
   if (view === 'complaints')     loadComplaints();
@@ -4491,6 +4575,320 @@ async function promptResRating(id) {
   }
 }
 
+/* ════════════════════════════════════════════════════════
+   FINANCES PAGE
+   Handles expense form, XLSX import, KPI summary cards,
+   and the expenses table with month/year/category filters.
+   ════════════════════════════════════════════════════════ */
+
+// Default expense categories (shown in the dropdown).
+// Admin can add more via the + button — stored in localStorage
+// so they persist across sessions on the same browser.
+const DEFAULT_CATEGORIES = [
+  'Lift Maintenance','Labour Salary','Security Salary','Housekeeping Salary',
+  'Electricity','Water','Generator Maintenance','Plumbing Repairs',
+  'Electrical Repairs','Pest Control','Garden / Landscaping',
+  'CCTV / Security System','Painting','Stationery','Bank Charges',
+  'Audit Fees','Festival / Events','Others',
+];
+
+// Load extra categories from localStorage (admin-added ones)
+function getExtraCategories() {
+  try { return JSON.parse(localStorage.getItem('kgc_extra_categories') || '[]'); }
+  catch { return []; }
+}
+function saveExtraCategory(name) {
+  const existing = getExtraCategories();
+  if (!existing.includes(name)) {
+    existing.push(name);
+    localStorage.setItem('kgc_extra_categories', JSON.stringify(existing));
+  }
+}
+
+// Rebuild the category <select> options with defaults + admin-added ones
+function refreshCategoryDropdown(selectId) {
+  const sel   = document.getElementById(selectId);
+  if (!sel) return;
+  const all   = [...DEFAULT_CATEGORIES, ...getExtraCategories()];
+  const cur   = sel.value;
+  sel.innerHTML = '<option value="">Select category</option>' +
+    [...new Set(all)].map(c => `<option value="${c}"${c === cur ? ' selected' : ''}>${c}</option>`).join('');
+}
+
+// Admin clicks + to add a new category to the dropdown
+function addFinanceCategory() {
+  const name = prompt('Enter new category name:');
+  if (!name || !name.trim()) return;
+  const trimmed = name.trim();
+  saveExtraCategory(trimmed);
+  refreshCategoryDropdown('fin-category');
+  refreshCategoryDropdown('fin-filter-category');
+  document.getElementById('fin-category').value = trimmed;
+}
+
+// Populate the year filter in the expenses table header
+function populateFinanceYearFilter() {
+  const sel  = document.getElementById('fin-filter-year');
+  if (!sel) return;
+  const cur  = new Date().getFullYear();
+  sel.innerHTML = '<option value="">All Years</option>' +
+    [cur, cur-1, cur-2, cur-3].map(y =>
+      `<option value="${y}" ${y === cur ? 'selected' : ''}>${y}</option>`
+    ).join('');
+
+  // Set default month filter to current month
+  const mSel = document.getElementById('fin-filter-month');
+  if (mSel && !mSel.value) {
+    mSel.value = String(new Date().getMonth() + 1).padStart(2, '0');
+  }
+}
+
+// Main load function — called when the Finances view is opened
+async function loadFinances() {
+  populateFinanceYearFilter();
+  refreshCategoryDropdown('fin-category');
+  refreshCategoryDropdown('fin-filter-category');
+
+  // Set default date to today
+  const dateInput = document.getElementById('fin-date');
+  if (dateInput && !dateInput.value) {
+    dateInput.value = new Date().toISOString().split('T')[0];
+  }
+
+  await Promise.all([loadFinanceSummary(), loadExpenses()]);
+}
+
+// Load the KPI summary cards from the backend
+async function loadFinanceSummary() {
+  try {
+    const s = await apiRequest('/api/expenses/summary');
+    const fmt = n => '₹' + parseFloat(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun',
+                        'Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mName = monthNames[s.month - 1];
+
+    document.getElementById('fin-kpi-collected').textContent    = fmt(s.totalCollected);
+    document.getElementById('fin-kpi-collected-sub').textContent = 'All maintenance payments received';
+    document.getElementById('fin-kpi-month-exp').textContent    = fmt(s.monthExpenses);
+    document.getElementById('fin-kpi-month-label').textContent  = `${mName} ${s.year}`;
+    document.getElementById('fin-kpi-year-exp').textContent     = fmt(s.yearExpenses);
+    document.getElementById('fin-kpi-year-label').textContent   = `Jan – Dec ${s.year}`;
+
+    const surplusEl = document.getElementById('fin-kpi-surplus');
+    const surplus   = parseFloat(s.netSurplus);
+    surplusEl.textContent  = fmt(Math.abs(surplus));
+    surplusEl.style.color  = surplus >= 0 ? 'var(--green)' : 'var(--red)';
+    // Prefix with + or -
+    surplusEl.textContent  = (surplus >= 0 ? '+' : '−') + fmt(Math.abs(surplus));
+  } catch (e) {
+    console.error('loadFinanceSummary error:', e);
+  }
+}
+
+// Load and render the expenses table with active filters
+async function loadExpenses() {
+  const tbody = document.getElementById('expenses-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>';
+
+  try {
+    const month    = document.getElementById('fin-filter-month')?.value  || '';
+    const year     = document.getElementById('fin-filter-year')?.value   || '';
+    const category = document.getElementById('fin-filter-category')?.value || '';
+
+    let qs = [];
+    if (month)    qs.push(`month=${month}`);
+    if (year)     qs.push(`year=${year}`);
+    if (category) qs.push(`category=${encodeURIComponent(category)}`);
+    const query = qs.length ? '?' + qs.join('&') : '';
+
+    const rows = await apiRequest('/api/expenses' + query);
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text2);">No expenses found for the selected period.</td></tr>';
+      document.getElementById('expenses-total-row').textContent = '';
+      return;
+    }
+
+    const modeLabel = {
+      cash:'Cash', cheque:'Cheque', online_upi:'UPI',
+      online_neft:'NEFT', online_rtgs:'RTGS', demand_draft:'DD',
+    };
+
+    tbody.innerHTML = rows.map(e => {
+      const dateStr = new Date(e.expense_date).toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'});
+      const amt     = parseFloat(e.amount).toLocaleString('en-IN', {maximumFractionDigits:0});
+      return `<tr>
+        <td style="font-size:12px;font-weight:500;color:var(--navy);">${e.voucher_number || '—'}</td>
+        <td>${dateStr}</td>
+        <td><span class="badge badge-navy">${e.category}</span></td>
+        <td>${e.description}</td>
+        <td style="color:var(--text2);font-size:13px;">${e.vendor_name}</td>
+        <td style="font-weight:600;">₹${amt}</td>
+        <td><span class="badge badge-navy">${modeLabel[e.payment_mode] || e.payment_mode}</span></td>
+        <td class="admin-only"><button class="btn-sm btn-sm-red" onclick="deleteExpense('${e.id}','${e.voucher_number}')">🗑</button></td>
+      </tr>`;
+    }).join('');
+
+    // Total row
+    const total = rows.reduce((s, e) => s + parseFloat(e.amount), 0);
+    document.getElementById('expenses-total-row').innerHTML =
+      `Total for selected period: <strong>₹${total.toLocaleString('en-IN', {maximumFractionDigits:0})}</strong>`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--red);">${err.message}</td></tr>`;
+  }
+}
+
+// Submit a single expense from the form
+async function submitExpense() {
+  const btn = document.getElementById('fin-submit-btn');
+  const err = document.getElementById('fin-form-error');
+  const suc = document.getElementById('fin-form-success');
+  err.classList.add('hidden');
+  suc.classList.add('hidden');
+
+  const expenseDate  = document.getElementById('fin-date').value;
+  const category     = document.getElementById('fin-category').value;
+  const description  = document.getElementById('fin-description').value.trim();
+  const vendorName   = document.getElementById('fin-payee').value.trim();
+  const amount       = document.getElementById('fin-amount').value;
+  const paymentMode  = document.getElementById('fin-payment-mode').value;
+
+  if (!expenseDate || !category || !description || !vendorName || !amount || !paymentMode) {
+    err.textContent = 'Please fill in all required fields (marked with *).';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    const result = await apiRequest('/api/expenses', {
+      method: 'POST',
+      body: JSON.stringify({
+        expenseDate,
+        category,
+        description,
+        vendorName,
+        vendorGstNumber:   document.getElementById('fin-gst-number').value.trim()  || null,
+        amount:            parseFloat(amount),
+        gstAmount:         parseFloat(document.getElementById('fin-gst-amount').value) || 0,
+        amountExcludingGst: parseFloat(amount) - (parseFloat(document.getElementById('fin-gst-amount').value) || 0),
+        paymentMode,
+        invoiceNumber:     document.getElementById('fin-bill-number').value.trim() || null,
+      }),
+    });
+
+    suc.textContent = `Expense saved. Voucher No: ${result.voucherNumber}`;
+    suc.classList.remove('hidden');
+    resetFinanceForm();
+
+    // Refresh table and summary
+    await Promise.all([loadExpenses(), loadFinanceSummary()]);
+  } catch (e) {
+    err.textContent = e.message || 'Could not save expense. Please try again.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Save Expense';
+  }
+}
+
+// Clear the expense form
+function resetFinanceForm() {
+  ['fin-description','fin-payee','fin-gst-number','fin-amount',
+   'fin-gst-amount','fin-bill-number'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('fin-category').value     = '';
+  document.getElementById('fin-payment-mode').value = '';
+  document.getElementById('fin-date').value =
+    new Date().toISOString().split('T')[0];  // reset to today
+  document.getElementById('fin-form-error').classList.add('hidden');
+  document.getElementById('fin-form-success').classList.add('hidden');
+}
+
+// Delete an expense record (super admin only)
+async function deleteExpense(id, voucherNo) {
+  if (!confirm(`Delete expense ${voucherNo}? This cannot be undone.`)) return;
+  try {
+    await apiRequest(`/api/expenses/${id}`, { method: 'DELETE' });
+    await Promise.all([loadExpenses(), loadFinanceSummary()]);
+  } catch (e) {
+    alert('Could not delete: ' + e.message);
+  }
+}
+
+// Toggle the XLSX upload panel
+function toggleFinanceUpload() {
+  document.getElementById('finance-upload-panel').classList.toggle('hidden');
+}
+
+// Handle XLSX upload — parse and bulk-import
+function handleFinanceFile(input) {
+  if (!input.files || !input.files[0]) return;
+  const statusEl = document.getElementById('finance-upload-status');
+  statusEl.textContent = 'Reading file...';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+      const rows     = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      if (rows.length === 0) {
+        statusEl.innerHTML = '<span style="color:var(--red);">No data rows found in the file.</span>';
+        return;
+      }
+
+      // Map rows to the format the backend expects
+      const expenses = rows
+        .filter(r => r.date && r.amount)
+        .map(r => ({
+          date:         typeof r.date === 'object' && r.date instanceof Date
+                          ? r.date.toISOString().split('T')[0]
+                          : String(r.date).trim(),
+          category:     String(r.category     || 'Others').trim(),
+          description:  String(r.description  || '—').trim(),
+          payee_name:   String(r.payee_name   || '—').trim(),
+          amount:       parseFloat(r.amount)   || 0,
+          gst_amount:   parseFloat(r.gst_amount || 0),
+          payment_mode: String(r.payment_mode || 'cash').trim().toLowerCase().replace(/\s/g,'_'),
+          bill_number:  String(r.bill_number  || '').trim() || null,
+          gst_number:   String(r.gst_number   || '').trim() || null,
+        }));
+
+      statusEl.textContent = `Importing ${expenses.length} rows...`;
+
+      // Send in batches of 50
+      let succeeded = 0, failed = [];
+      for (let i = 0; i < expenses.length; i += 50) {
+        const batch  = expenses.slice(i, i + 50);
+        const result = await apiRequest('/api/expenses/bulk', {
+          method: 'POST',
+          body: JSON.stringify({ expenses: batch }),
+        });
+        succeeded += result.successCount;
+        failed     = failed.concat(result.failed || []);
+        statusEl.textContent = `Importing... ${Math.min(i + 50, expenses.length)} / ${expenses.length}`;
+      }
+
+      statusEl.innerHTML =
+        `<span style="color:var(--green);">✅ Imported ${succeeded} of ${expenses.length} expenses.</span>` +
+        (failed.length ? ` <span style="color:var(--red);">⚠️ ${failed.length} failed.</span>` : '');
+
+      input.value = '';
+      await Promise.all([loadExpenses(), loadFinanceSummary()]);
+    } catch (err) {
+      statusEl.innerHTML = `<span style="color:var(--red);">Error: ${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(input.files[0]);
+}
 
 </script>
 </body>
