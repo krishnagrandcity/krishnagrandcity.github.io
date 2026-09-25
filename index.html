@@ -1054,7 +1054,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <h2 class="page-title">Notice Board</h2>
             <p class="page-sub">Official announcements and circulars for residents</p>
           </div>
-          <button class="btn-add btn-gold" onclick="openNoticeModal()">+ Post Notice</button>
+          <button class="btn-add btn-gold write-only" onclick="openNoticeModal()">+ Post Notice</button>
         </div>
 
         <!-- Category filter tabs for notices -->
@@ -2797,9 +2797,11 @@ function applyPermissions() {
 
   // ── Staff sidebar items (admin + manager + committee) ──
   document.getElementById('sb-members').classList.toggle('perm-hidden',    !staff);
-  document.getElementById('sb-notices').classList.toggle('perm-hidden',    !staff);
   document.getElementById('sb-complaints').classList.toggle('perm-hidden', !staff);
   document.getElementById('sb-facilities').classList.toggle('perm-hidden', !staff);
+
+  // ── Notices — visible to everyone including residents ──
+  document.getElementById('sb-notices').classList.toggle('perm-hidden', false);
 
   // ── Admin + manager only (not committee) ──
   document.getElementById('sb-bills').classList.toggle('perm-hidden',    !(admin || manager));
@@ -3937,9 +3939,9 @@ function renderNotices() {
         </div>
       </div>
       <div class="notice-body">${n.body}</div>
-      ${isAdmin() || isCommittee() ? `<div class="notice-actions">
+      ${canWrite() ? `<div class="notice-actions">
         <button class="btn-sm btn-sm-outline" onclick="openEditNoticeModal('${n.id}')">Edit</button>
-        <button class="btn-sm btn-sm-red" onclick="deleteNotice('${n.id}')">Delete</button>
+        ${canDelete() ? `<button class="btn-sm btn-sm-red" onclick="deleteNotice('${n.id}')">Delete</button>` : ''}
       </div>` : ''}
     </div>
   `; }).join('');
@@ -4464,13 +4466,24 @@ let resComplaintsFilter = 'all';
 // ── Resident Home ────────────────────────────────────────
 // Loads profile, summary KPIs and a 3-bill preview all in parallel.
 async function loadResidentHome() {
-  if (!currentUser || !currentUser.memberId) return;
+  if (!currentUser) return;
 
-  // Greeting
+  // Greeting — always shown even if member record is not linked yet
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   document.getElementById('res-home-greeting').textContent = `${greeting}, ${currentUser.name.split(' ')[0]}`;
   document.getElementById('res-home-house').textContent = `House ${currentUser.houseNumber || ''} · Krishna Grand City Society`;
+
+  // If no member record is linked, show a helpful message but still show the page
+  if (!currentUser.memberId) {
+    document.getElementById('res-profile-content').innerHTML =
+      '<span style="color:var(--amber);">Your account is not yet linked to a member record. Please contact the society office.</span>';
+    document.getElementById('res-home-bills').innerHTML =
+      '<span style="color:var(--text2);">No billing data available.</span>';
+    document.getElementById('res-kpi-balance').textContent   = '—';
+    document.getElementById('res-kpi-complaints').textContent = '—';
+    return;
+  }
 
   // Load all three in parallel
   const [memberData, billData, complaintData] = await Promise.allSettled([
