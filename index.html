@@ -1054,7 +1054,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <h2 class="page-title">Notice Board</h2>
             <p class="page-sub">Official announcements and circulars for residents</p>
           </div>
-          <button class="btn-add btn-gold admin-only" onclick="openNoticeModal()">+ Post Notice</button>
+          <button class="btn-add btn-gold" onclick="openNoticeModal()">+ Post Notice</button>
         </div>
 
         <!-- Category filter tabs for notices -->
@@ -1109,7 +1109,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <h2 class="page-title">Maintenance Bills</h2>
             <p class="page-sub">Track dues, record payments, and generate monthly bills</p>
           </div>
-          <button class="btn-add btn-gold admin-only" onclick="openGenerateBillsModal()">+ Generate Bills</button>
+          <button class="btn-add btn-gold write-only" onclick="openGenerateBillsModal()">+ Generate Bills</button>
         </div>
 
         <div class="filter-tabs" style="margin-bottom:24px;">
@@ -2509,10 +2509,11 @@ function showPage(page) {
     if (currentUser.tier === 'resident') {
       showDash('resident-home');
     } else if (currentUser.tier === 'committee') {
-      showDash('complaints');
+      showDash('notices');       // Committee lands on notices
+    } else if (currentUser.tier === 'manager') {
+      showDash('members');       // Manager lands on members
     } else {
-      loadMembers();
-      if (!chartsInitialized) { setTimeout(initCharts, 150); chartsInitialized = true; }
+      loadMembers();             // Admin tiers land on members
     }
   }
   window.scrollTo(0, 0);
@@ -2577,15 +2578,34 @@ async function submitChangePassword() {
 // Applies a successful login response to the app's UI state.
 // Shared by doLogin() (fresh login) and restoreSession() (page reload).
 function applySession(userData) {
-  const tierMap = { super_admin: 'admin', committee: 'committee', resident: 'resident' };
+  // tier controls what the frontend shows/hides.
+  // 'admin'     → full access + deletions (super_admin, president, secretary, treasurer)
+  // 'manager'   → add/edit, no deletions
+  // 'committee' → view + notices/complaints only
+  // 'resident'  → own data only
+  const tierMap = {
+    super_admin: 'admin',
+    president:   'admin',
+    secretary:   'admin',
+    treasurer:   'admin',
+    manager:     'manager',
+    committee:   'committee',
+    resident:    'resident',
+  };
   const initials = userData.displayName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   loggedIn = true;
   currentUser = {
     name: userData.displayName,
-    role: userData.role === 'super_admin' ? 'Administrator'
-        : userData.role === 'committee'   ? 'Committee Member'
-        : 'Resident',
+    role: {
+      super_admin: 'Administrator',
+      president:   'President',
+      secretary:   'Secretary',
+      treasurer:   'Treasurer',
+      manager:     'Manager',
+      committee:   'Committee Member',
+      resident:    'Resident',
+    }[userData.role] || userData.role,
     tier: tierMap[userData.role] || 'resident',
     initials,
     houseNumber: userData.houseNumber,
@@ -2677,33 +2697,49 @@ function logout() {
                Complaints (raise), Facilities (book Gym/Hall).
    ────────────────────────────────────────────────── */
 function isAdmin()     { return currentUser && currentUser.tier === 'admin'; }
+function isManager()   { return currentUser && currentUser.tier === 'manager'; }
 function isCommittee() { return currentUser && currentUser.tier === 'committee'; }
 function isResident()  { return currentUser && currentUser.tier === 'resident'; }
+// Can write = admin or manager
+function canWrite()    { return isAdmin() || isManager(); }
+// Can delete = admin only
+function canDelete()   { return isAdmin(); }
 
 function applyPermissions() {
-  const admin = isAdmin(), committee = isCommittee(), resident = isResident();
-
-  // ── Admin-only sidebar items ──
-  document.getElementById('sb-members').classList.toggle('perm-hidden', !admin);
-  document.getElementById('sb-finances').classList.toggle('perm-hidden', !admin);
+  const admin     = isAdmin();
+  const manager   = isManager();
+  const committee = isCommittee();
+  const resident  = isResident();
+  const staff     = admin || manager || committee; // anyone non-resident
 
   // ── Resident-only sidebar items ──
-  // (all start with perm-hidden in HTML; we reveal them for residents only)
-  document.getElementById('sb-myprofile').classList.toggle('perm-hidden', !resident);
-  document.getElementById('sb-res-bills').classList.toggle('perm-hidden', !resident);
+  document.getElementById('sb-myprofile').classList.toggle('perm-hidden',    !resident);
+  document.getElementById('sb-res-bills').classList.toggle('perm-hidden',    !resident);
   document.getElementById('sb-res-complaints').classList.toggle('perm-hidden', !resident);
 
-  // ── Shared management items — hide from residents ──
-  // Residents have their own scoped views; they must not see the admin table.
-  document.getElementById('sb-notices').classList.toggle('perm-hidden', resident || committee);
-  document.getElementById('sb-bills').classList.toggle('perm-hidden', resident || committee);
-  // Complaints sidebar goes to admin view — residents use sb-res-complaints
-  document.getElementById('sb-complaints').classList.toggle('perm-hidden', resident);
+  // ── Staff sidebar items (admin + manager + committee) ──
+  document.getElementById('sb-members').classList.toggle('perm-hidden',    !staff);
+  document.getElementById('sb-notices').classList.toggle('perm-hidden',    !staff);
+  document.getElementById('sb-complaints').classList.toggle('perm-hidden', !staff);
+  document.getElementById('sb-facilities').classList.toggle('perm-hidden', !staff);
 
-  // ── Admin-only editing controls inside views ──
-  const adminOnlyIds = ['btn-add-member'];
-  adminOnlyIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.toggle('perm-hidden', !admin); });
-  document.querySelectorAll('.admin-only').forEach(el => el.classList.toggle('perm-hidden', !admin));
+  // ── Admin + manager only (not committee) ──
+  document.getElementById('sb-bills').classList.toggle('perm-hidden',    !(admin || manager));
+  document.getElementById('sb-finances').classList.toggle('perm-hidden', !(admin || manager));
+
+  // ── .admin-only elements: show for admin tier only (deletions, destructive actions) ──
+  document.querySelectorAll('.admin-only').forEach(el =>
+    el.classList.toggle('perm-hidden', !admin)
+  );
+
+  // ── .write-only elements: show for admin + manager (add/edit buttons) ──
+  document.querySelectorAll('.write-only').forEach(el =>
+    el.classList.toggle('perm-hidden', !(admin || manager))
+  );
+
+  // ── btn-add-member: admin + manager ──
+  const addMemberBtn = document.getElementById('btn-add-member');
+  if (addMemberBtn) addMemberBtn.classList.toggle('perm-hidden', !(admin || manager));
 }
 
 
@@ -2713,8 +2749,15 @@ function applyPermissions() {
    ════════════════════════════════════════════════════ */
 function showDash(view) {
   // Route guard — committee/resident tiers cannot open Members or Analytics; committee also can't open Notice Board
-  if ((isCommittee() || isResident()) && (view === 'members' || view === 'analytics')) view = 'complaints';
-  if (isCommittee() && view === 'notices') view = 'complaints';
+  // Committee can only access: notices, complaints, facilities
+  // (they cannot see members list, bills, or finances)
+  const committeeOnly = ['notices', 'complaints', 'facilities'];
+  if (isCommittee() && !committeeOnly.includes(view)) view = 'notices';
+
+  // Residents go to their own scoped views
+  if (isResident() && !['resident-home','res-bills','res-complaints','facilities','notices'].includes(view)) {
+    view = 'resident-home';
+  }
   // All dashboard sub-views
   const views = [
     'members','detail','finances','notices','complaints','bills','pay-upi','facilities',
@@ -2889,7 +2932,7 @@ async function showMemberDetail(id) {
   const emergency = m.emergency_contact_name
     ? `${m.emergency_contact_name}${m.emergency_contact_phone ? ' – ' + m.emergency_contact_phone : ''}`
     : '—';
-  const actionButtons = (isAdmin() || isCommittee()) ? `
+  const actionButtons = (isAdmin() || isManager()) ? `
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;">
       <button class="btn-sm btn-sm-outline" onclick="openEditModal()">✏️ Edit Profile</button>
       <button class="btn-sm btn-sm-outline" onclick="toggleMemberActive('${m.id}', ${!m.is_active})">${m.is_active ? '🚫 Mark Inactive' : '✅ Reactivate'}</button>
