@@ -1638,7 +1638,10 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           </div>
         </div>
         <div class="info-section" style="margin-bottom:20px;">
-          <h3>My Profile</h3>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h3 style="margin-bottom:0;">My Profile</h3>
+            <button class="btn-add" style="font-size:12px;padding:7px 14px;" onclick="openResEditModal()">✏️ Edit Details</button>
+          </div>
           <div id="res-profile-content" style="color:var(--text2);font-size:13px;">Loading...</div>
         </div>
         <div class="info-section">
@@ -1816,6 +1819,81 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
   </div>
 </div>
 
+
+<!-- ════════════════════════════════════════════════════════════
+     RESIDENT EDIT PROFILE MODAL
+     Lets a resident update their own contact details.
+     House number and unit type are read-only (admin-controlled).
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="res-edit-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Edit My Details</h2>
+      <button class="modal-close" onclick="closeResEditModal()">✕</button>
+    </div>
+
+    <!-- Read-only fields (shown for reference, not editable) -->
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--text2);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span>House Number</span>
+        <strong id="re-house-display" style="color:var(--navy);">—</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Unit Type</span>
+        <strong id="re-type-display" style="color:var(--navy);">—</strong>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3);">
+        House number and unit type can only be changed by the admin.
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Primary Phone *</label>
+        <input class="form-input" id="re-phone-primary" placeholder="10-digit mobile number" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Alternate Phone</label>
+        <input class="form-input" id="re-phone-secondary" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" type="email" id="re-email" placeholder="your@email.com" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Vehicle 1 Registration</label>
+        <input class="form-input" id="re-vehicle-1" placeholder="e.g. MH-12 AB 1234" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vehicle 2 Registration</label>
+        <input class="form-input" id="re-vehicle-2" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Name</label>
+        <input class="form-input" id="re-emergency-name" placeholder="e.g. Ramesh Iyer" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Phone</label>
+        <input class="form-input" id="re-emergency-phone" placeholder="e.g. 9876543210" />
+      </div>
+    </div>
+
+    <div id="re-error" class="error-msg hidden"></div>
+    <div id="re-success" class="success-msg hidden"></div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeResEditModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="re-submit-btn" onclick="submitResEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      POST NOTICE MODAL
@@ -4643,6 +4721,103 @@ async function promptResRating(id) {
     await loadResComplaints();
   } catch (e) {
     alert('Could not submit rating: ' + e.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   RESIDENT SELF-EDIT
+   Residents can update their own contact details only.
+   House number and unit type are displayed read-only.
+   ════════════════════════════════════════════════════════ */
+
+// Store the current resident's member data for pre-filling the edit form
+let residentMemberData = null;
+
+async function openResEditModal() {
+  // Fetch fresh member data if we don't have it yet
+  if (!residentMemberData && currentUser.memberId) {
+    try {
+      residentMemberData = await apiRequest(`/api/members/${currentUser.memberId}`);
+    } catch (e) {
+      alert('Could not load your profile data. Please try again.');
+      return;
+    }
+  }
+
+  const m = residentMemberData;
+  if (!m) return;
+
+  // Show read-only reference fields
+  document.getElementById('re-house-display').textContent = m.house_number || '—';
+  document.getElementById('re-type-display').textContent  = getTypeShortLabel(m.unit_type);
+
+  // Pre-fill editable fields
+  document.getElementById('re-phone-primary').value   = m.phone_primary           || '';
+  document.getElementById('re-phone-secondary').value = m.phone_secondary         || '';
+  document.getElementById('re-email').value           = m.email                   || '';
+  document.getElementById('re-vehicle-1').value       = m.vehicle_1_reg           || '';
+  document.getElementById('re-vehicle-2').value       = m.vehicle_2_reg           || '';
+  document.getElementById('re-emergency-name').value  = m.emergency_contact_name  || '';
+  document.getElementById('re-emergency-phone').value = m.emergency_contact_phone || '';
+
+  document.getElementById('re-error').classList.add('hidden');
+  document.getElementById('re-success').classList.add('hidden');
+
+  document.getElementById('res-edit-modal').classList.remove('hidden');
+}
+
+function closeResEditModal() {
+  document.getElementById('res-edit-modal').classList.add('hidden');
+}
+
+async function submitResEdit() {
+  const btn   = document.getElementById('re-submit-btn');
+  const err   = document.getElementById('re-error');
+  const suc   = document.getElementById('re-success');
+  err.classList.add('hidden');
+  suc.classList.add('hidden');
+
+  const phonePrimary = document.getElementById('re-phone-primary').value.trim();
+  if (!phonePrimary) {
+    err.textContent = 'Primary phone number is required.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled    = true;
+  btn.textContent = 'Saving...';
+
+  try {
+    await apiRequest('/api/members/me', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        phonePrimary,
+        phoneSecondary:        document.getElementById('re-phone-secondary').value.trim() || null,
+        email:                 document.getElementById('re-email').value.trim()           || null,
+        vehicle1Reg:           document.getElementById('re-vehicle-1').value.trim()       || null,
+        vehicle2Reg:           document.getElementById('re-vehicle-2').value.trim()       || null,
+        emergencyContactName:  document.getElementById('re-emergency-name').value.trim()  || null,
+        emergencyContactPhone: document.getElementById('re-emergency-phone').value.trim() || null,
+      }),
+    });
+
+    suc.textContent = 'Your details have been updated successfully.';
+    suc.classList.remove('hidden');
+
+    // Clear cached member data so the profile card refreshes on next load
+    residentMemberData = null;
+
+    // Refresh the profile card in the background
+    setTimeout(() => {
+      closeResEditModal();
+      loadResidentHome();
+    }, 1200);
+  } catch (e) {
+    err.textContent = e.message || 'Could not save changes. Please try again.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Save Changes';
   }
 }
 
