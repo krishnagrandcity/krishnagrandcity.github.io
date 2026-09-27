@@ -1864,6 +1864,81 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
 
 
 <!-- ════════════════════════════════════════════════════════════
+     EDIT EXPENSE MODAL — admin/president/secretary/treasurer only
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="edit-expense-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Edit Expense</h2>
+      <button class="modal-close" onclick="closeEditExpenseModal()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;" id="ee-voucher-label"></div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="ee-date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category *</label>
+        <select class="form-select" id="ee-category"></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description *</label>
+      <input class="form-input" id="ee-description" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Payee Name *</label>
+        <input class="form-input" id="ee-payee" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GST Number</label>
+        <input class="form-input" id="ee-gst-number" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Amount (₹) *</label>
+        <input class="form-input" type="number" id="ee-amount" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GST Amount (₹)</label>
+        <input class="form-input" type="number" id="ee-gst-amount" min="0" placeholder="0" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Bill Number</label>
+        <input class="form-input" id="ee-bill-number" placeholder="Optional" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method *</label>
+        <select class="form-select" id="ee-payment-mode">
+          <option value="cash">Cash</option>
+          <option value="cheque">Cheque</option>
+          <option value="online_upi">UPI</option>
+          <option value="online_neft">NEFT</option>
+          <option value="online_rtgs">RTGS</option>
+          <option value="demand_draft">Demand Draft</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="ee-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditExpenseModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="ee-submit-btn" onclick="submitEditExpense()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      EDIT BILL MODAL — admin/president/secretary/treasurer only
      ════════════════════════════════════════════════════════════ -->
 <div class="modal-overlay hidden" id="edit-bill-modal">
@@ -4539,6 +4614,7 @@ function renderHallTable() {
    JWT role is 'resident' — no extra filtering needed on POST.
    ════════════════════════════════════════════════════════ */
 
+let expenseRows   = []; // cached from last loadExpenses() call — used by edit modal
 let resBills      = [];
 let resComplaints = [];
 let resBillsFilter      = 'all';
@@ -4926,6 +5002,99 @@ async function exportBillsCSV() {
     alert('Export failed: ' + err.message);
     event.target.textContent = '⬇ Export CSV';
     event.target.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   EDIT EXPENSE MODAL
+   ════════════════════════════════════════════════════════ */
+
+let currentEditExpenseId = null;
+
+function openEditExpenseModal(id) {
+  const e = expenseRows.find(r => r.id === id);
+  if (!e) { alert('Could not find expense data. Please reload the page.'); return; }
+
+  currentEditExpenseId = id;
+
+  // Voucher label
+  document.getElementById('ee-voucher-label').textContent =
+    `Voucher: ${e.voucher_number || '—'}`;
+
+  // Populate category dropdown with all known categories
+  const allCats = [...DEFAULT_CATEGORIES, ...getExtraCategories()];
+  const catSel  = document.getElementById('ee-category');
+  catSel.innerHTML = [...new Set(allCats)].map(c =>
+    `<option value="${c}" ${c === e.category ? 'selected' : ''}>${c}</option>`
+  ).join('');
+  // If expense has a category not in the list, add it
+  if (e.category && !allCats.includes(e.category)) {
+    catSel.innerHTML += `<option value="${e.category}" selected>${e.category}</option>`;
+  }
+
+  // Pre-fill fields
+  const dateVal = e.expense_date ? e.expense_date.split('T')[0] : '';
+  document.getElementById('ee-date').value         = dateVal;
+  document.getElementById('ee-description').value  = e.description  || '';
+  document.getElementById('ee-payee').value         = e.vendor_name  || '';
+  document.getElementById('ee-gst-number').value    = e.vendor_gst_number || '';
+  document.getElementById('ee-amount').value        = parseFloat(e.amount || 0);
+  document.getElementById('ee-gst-amount').value    = parseFloat(e.gst_amount || 0);
+  document.getElementById('ee-bill-number').value   = e.invoice_number || '';
+  document.getElementById('ee-payment-mode').value  = e.payment_mode || 'cash';
+
+  document.getElementById('ee-error').classList.add('hidden');
+  document.getElementById('edit-expense-modal').classList.remove('hidden');
+}
+
+function closeEditExpenseModal() {
+  document.getElementById('edit-expense-modal').classList.add('hidden');
+  currentEditExpenseId = null;
+}
+
+async function submitEditExpense() {
+  const btn = document.getElementById('ee-submit-btn');
+  const err = document.getElementById('ee-error');
+  err.classList.add('hidden');
+
+  const expenseDate   = document.getElementById('ee-date').value;
+  const category      = document.getElementById('ee-category').value;
+  const description   = document.getElementById('ee-description').value.trim();
+  const vendorName    = document.getElementById('ee-payee').value.trim();
+  const amount        = parseFloat(document.getElementById('ee-amount').value);
+  const paymentMode   = document.getElementById('ee-payment-mode').value;
+
+  if (!expenseDate || !category || !description || !vendorName || isNaN(amount) || !paymentMode) {
+    err.textContent = 'Please fill in all required fields.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  try {
+    await apiRequest(`/api/expenses/${currentEditExpenseId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        expenseDate,
+        category,
+        description,
+        vendorName,
+        vendorGstNumber:  document.getElementById('ee-gst-number').value.trim()  || null,
+        amount,
+        gstAmount:        parseFloat(document.getElementById('ee-gst-amount').value) || 0,
+        paymentMode,
+        invoiceNumber:    document.getElementById('ee-bill-number').value.trim() || null,
+      }),
+    });
+
+    closeEditExpenseModal();
+    await Promise.all([loadExpenses(), loadFinanceSummary()]);
+  } catch (e) {
+    err.textContent = e.message || 'Could not update expense.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Changes';
   }
 }
 
@@ -5366,6 +5535,7 @@ async function loadExpenses() {
     const query = qs.length ? '?' + qs.join('&') : '';
 
     const rows = await apiRequest('/api/expenses' + query);
+    expenseRows = rows; // store for edit modal lookup
 
     if (rows.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text2);">No expenses found for the selected period.</td></tr>';
@@ -5389,7 +5559,10 @@ async function loadExpenses() {
         <td style="color:var(--text2);font-size:13px;">${e.vendor_name}</td>
         <td style="font-weight:600;">₹${amt}</td>
         <td><span class="badge badge-navy">${modeLabel[e.payment_mode] || e.payment_mode}</span></td>
-        <td class="admin-only"><button class="btn-sm btn-sm-red" onclick="deleteExpense('${e.id}','${e.voucher_number}')">🗑</button></td>
+        <td class="admin-only" style="white-space:nowrap;">
+          <button class="btn-sm btn-sm-outline" onclick="openEditExpenseModal('${e.id}')">✏️ Edit</button>
+          <button class="btn-sm btn-sm-red" onclick="deleteExpense('${e.id}','${e.voucher_number}')">🗑</button>
+        </td>
       </tr>`;
     }).join('');
 
