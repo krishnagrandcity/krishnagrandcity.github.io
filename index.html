@@ -1139,13 +1139,13 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
         <div id="bill-import-panel" class="info-section hidden admin-only" style="margin-bottom:20px;">
           <h3>Import Historical Bills from Excel</h3>
           <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
-            Upload one month's data at a time. Each row is matched to a resident via their house number.
+            Each row is matched to a resident via their house number. Multiple months can be in one file.
           </p>
-          <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:2;">
+          <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:2.2;">
             <strong style="color:var(--navy);">Required columns:</strong>
-            <code>house_number</code>, <code>billing_month</code> (YYYY-MM-DD), <code>financial_year</code> (e.g. 2025-26), <code>amount_due</code><br/>
+            <code>house_number</code>, <code>billing_month</code> (DDMMYYYY or YYYY-MM-DD), <code>financial_year</code> (e.g. 2025-2026)<br/>
             <strong style="color:var(--navy);">Optional columns:</strong>
-            <code>amount_paid</code>, <code>payment_date</code> (YYYY-MM-DD), <code>payment_mode</code> (cash/cheque/online_upi/online_neft), <code>remarks</code>
+            <code>amount_due</code> (defaults to 0), <code>amount_paid</code>, <code>payment_date</code> (DDMMYYYY), <code>payment_mode</code> (Cash/Cheque/UPI/NEFT/RTGS), <code>bill_book_number</code>
           </div>
           <div class="upload-box" onclick="document.getElementById('bill-import-input').click()" style="border:2px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;cursor:pointer;">
             <div style="font-size:24px;margin-bottom:6px;">📂</div>
@@ -5123,37 +5123,79 @@ function handleBillImportFile(input) {
         return;
       }
 
-      function parseImportDate(val) {
+      // Parse date — supports DDMMYYYY (8 digits), DD.MM.YYYY, DD/MM/YYYY, YYYY-MM-DD, JS Date
+      function parseBillDate(val, asBillingMonth) {
         if (!val) return null;
-        if (typeof val === 'object' && val instanceof Date) return val.toISOString().split('T')[0];
-        const s = String(val).trim();
+        if (typeof val === 'object' && val instanceof Date) {
+          const iso = val.toISOString().split('T')[0];
+          return asBillingMonth ? iso.slice(0, 8) + '01' : iso;
+        }
+        const s = String(val).trim().replace(/\s/g, '');
+
+        // DDMMYYYY — exactly 8 digits
+        if (/^\d{8}$/.test(s)) {
+          const d = s.slice(0,2), m = s.slice(2,4), y = s.slice(4,8);
+          const iso = `${y}-${m}-${d}`;
+          return asBillingMonth ? `${y}-${m}-01` : iso;
+        }
+        // DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
         const dmy = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
-        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
-        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-        const d = new Date(s); return isNaN(d) ? null : d.toISOString().split('T')[0];
+        if (dmy) {
+          const iso = `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+          return asBillingMonth ? `${dmy[3]}-${dmy[2].padStart(2,'0')}-01` : iso;
+        }
+        // YYYY-MM-DD already
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+          return asBillingMonth ? s.slice(0,8) + '01' : s;
+        }
+        // YYYYMM — 6 digits (month only, e.g. 202508)
+        if (/^\d{6}$/.test(s)) {
+          return `${s.slice(0,4)}-${s.slice(4,6)}-01`;
+        }
+        return null;
+      }
+
+      // Normalise financial year — accept "2025-2026", "2025-26", "25-26"
+      function normFY(val) {
+        const s = String(val || '').trim();
+        // Already in short format like "2025-26"
+        if (/^\d{4}-\d{2}$/.test(s)) return s;
+        // Long format like "2025-2026"
+        const m = s.match(/^(\d{4})[- \/](\d{4})$/);
+        if (m) return `${m[1]}-${m[2].slice(-2)}`;
+        return s;
       }
 
       function normMode(val) {
-        const v = String(val || '').trim().toLowerCase().replace(/\s+/g,'_');
-        const map = { cheque:'cheque', check:'cheque', cash:'cash',
-          upi:'online_upi', neft:'online_neft', rtgs:'online_rtgs',
-          dd:'demand_draft', imps:'online_neft' };
-        return map[v] || ((['cash','cheque','online_upi','online_neft','online_rtgs','demand_draft'].includes(v)) ? v : 'cash');
+        const v = String(val || '').trim().toLowerCase().replace(/[\s_]+/g,'_');
+        const map = {
+          cash:'cash', cheque:'cheque', check:'cheque',
+          upi:'online_upi', online_upi:'online_upi',
+          neft:'online_neft', online_neft:'online_neft',
+          rtgs:'online_rtgs', online_rtgs:'online_rtgs',
+          dd:'demand_draft', demand_draft:'demand_draft', imps:'online_neft',
+        };
+        return map[v] || 'cash';
       }
 
       const bills = rows
-        .filter(r => r.house_number && r.billing_month)
+        .filter(r => r.house_number)
         .map(r => ({
-          houseNumber:   String(r.house_number   || '').trim(),
-          billingMonth:  parseImportDate(r.billing_month),
-          financialYear: String(r.financial_year || '').trim(),
-          amountDue:     parseFloat(r.amount_due)  || 0,
-          amountPaid:    parseFloat(r.amount_paid) || 0,
-          paymentDate:   parseImportDate(r.payment_date) || null,
-          paymentMode:   normMode(r.payment_mode),
-          remarks:       String(r.remarks || '').trim() || null,
+          houseNumber:    String(r.house_number    || '').trim(),
+          billingMonth:   parseBillDate(r.billing_month, true),   // always 1st of month
+          financialYear:  normFY(r.financial_year),
+          amountDue:      parseFloat(r.amount_due)  || 0,          // default 0
+          amountPaid:     parseFloat(r.amount_paid) || 0,
+          paymentDate:    parseBillDate(r.payment_date, false),
+          paymentMode:    normMode(r.payment_mode),
+          billBookNumber: String(r.bill_book_number || '').trim() || null,
         }))
-        .filter(r => r.billingMonth);
+        .filter(r => r.billingMonth); // skip rows with unparseable billing month
+
+      if (bills.length === 0) {
+        statusEl.innerHTML = '<span style="color:var(--red);">No valid rows found. Check that billing_month column is present and formatted correctly.</span>';
+        return;
+      }
 
       statusEl.textContent = `Found ${bills.length} rows. Importing...`;
 
@@ -5165,15 +5207,17 @@ function handleBillImportFile(input) {
           method: 'POST',
           body: JSON.stringify({ bills: batch }),
         });
-        succeeded   += result.successCount;
-        allFailed    = allFailed.concat(result.failed || []);
+        succeeded += result.successCount;
+        allFailed  = allFailed.concat(result.failed || []);
         statusEl.textContent = `Importing... ${Math.min(i + BATCH, bills.length)} / ${bills.length}`;
       }
 
       statusEl.innerHTML =
         `<span style="color:var(--green);">✅ Imported ${succeeded} of ${bills.length} bills.</span>` +
-        (allFailed.length ? `<br><span style="color:var(--red);">⚠️ ${allFailed.length} failed:</span><br>` +
-          allFailed.map(f => `<span style="font-size:12px;color:var(--red);">• ${f.row}: ${f.error}</span>`).join('<br>') : '');
+        (allFailed.length
+          ? `<br><span style="color:var(--red);">⚠️ ${allFailed.length} failed:</span><br>` +
+            allFailed.map(f => `<span style="font-size:12px;color:var(--red);">• ${f.row}: ${f.error}</span>`).join('<br>')
+          : '');
 
       input.value = '';
       await loadBills();
