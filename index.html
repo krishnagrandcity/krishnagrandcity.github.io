@@ -5305,22 +5305,60 @@ function handleFinanceFile(input) {
         return;
       }
 
+      // ── Date parser — handles multiple formats ──────────────
+      // Supports: JS Date object, YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY, DD-MM-YYYY
+      function parseDate(val) {
+        if (!val) return null;
+        if (typeof val === 'object' && val instanceof Date) {
+          return val.toISOString().split('T')[0];
+        }
+        const s = String(val).trim();
+        // DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
+        const dmy = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+        // YYYY-MM-DD already
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        // Fallback — let Date parse it
+        const d = new Date(s);
+        return isNaN(d) ? null : d.toISOString().split('T')[0];
+      }
+
+      // ── Payment mode normaliser ──────────────────────────────
+      // Maps user-friendly values to the DB enum values
+      function normaliseMode(val) {
+        const raw = String(val || '').trim().toLowerCase().replace(/\s+/g, '_');
+        const map = {
+          'cash':         'cash',
+          'cheque':       'cheque',
+          'check':        'cheque',
+          'upi':          'online_upi',
+          'online_upi':   'online_upi',
+          'neft':         'online_neft',
+          'online_neft':  'online_neft',
+          'rtgs':         'online_rtgs',
+          'online_rtgs':  'online_rtgs',
+          'dd':           'demand_draft',
+          'demand_draft': 'demand_draft',
+          'imps':         'online_neft',
+        };
+        return map[raw] || 'cash';
+      }
+
       // Map rows to the format the backend expects
       const expenses = rows
         .filter(r => r.date && r.amount)
         .map(r => ({
-          date:         typeof r.date === 'object' && r.date instanceof Date
-                          ? r.date.toISOString().split('T')[0]
-                          : String(r.date).trim(),
+          date:         parseDate(r.date),
           category:     String(r.category     || 'Others').trim(),
           description:  String(r.description  || '—').trim(),
           payee_name:   String(r.payee_name   || '—').trim(),
           amount:       parseFloat(r.amount)   || 0,
           gst_amount:   parseFloat(r.gst_amount || 0),
-          payment_mode: String(r.payment_mode || 'cash').trim().toLowerCase().replace(/\s/g,'_'),
+          payment_mode: normaliseMode(r.payment_mode),
           bill_number:  String(r.bill_number  || '').trim() || null,
           gst_number:   String(r.gst_number   || '').trim() || null,
-        }));
+        }))
+        .filter(r => r.date); // skip rows where date couldn't be parsed
 
       statusEl.textContent = `Importing ${expenses.length} rows...`;
 
