@@ -1110,8 +1110,9 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <h2 class="page-title">Maintenance Bills</h2>
             <p class="page-sub">Track dues, record payments, and generate monthly bills</p>
           </div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn-sm btn-sm-outline" onclick="exportBillsCSV()" style="padding:7px 14px;font-size:13px;">⬇ Export CSV</button>
+            <button class="btn-sm btn-sm-outline admin-only" onclick="toggleBillImportPanel()" style="padding:7px 14px;font-size:13px;">⬆ Import Bills (XLSX)</button>
             <button class="btn-add btn-gold write-only" onclick="openGenerateBillsModal()">+ Generate Bills</button>
           </div>
         </div>
@@ -1132,6 +1133,26 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q3 (Jul–Sep)</div><div class="metric-val">—</div></div>
             <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q4 (Oct–Dec)</div><div class="metric-val">—</div></div>
           </div>
+        </div>
+
+        <!-- ── Bill Import Panel (admin only) ── -->
+        <div id="bill-import-panel" class="info-section hidden admin-only" style="margin-bottom:20px;">
+          <h3>Import Historical Bills from Excel</h3>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
+            Upload one month's data at a time. Each row is matched to a resident via their house number.
+          </p>
+          <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:2;">
+            <strong style="color:var(--navy);">Required columns:</strong>
+            <code>house_number</code>, <code>billing_month</code> (YYYY-MM-DD), <code>financial_year</code> (e.g. 2025-26), <code>amount_due</code><br/>
+            <strong style="color:var(--navy);">Optional columns:</strong>
+            <code>amount_paid</code>, <code>payment_date</code> (YYYY-MM-DD), <code>payment_mode</code> (cash/cheque/online_upi/online_neft), <code>remarks</code>
+          </div>
+          <div class="upload-box" onclick="document.getElementById('bill-import-input').click()" style="border:2px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;cursor:pointer;">
+            <div style="font-size:24px;margin-bottom:6px;">📂</div>
+            <div style="font-size:14px;font-weight:500;color:var(--navy);">Click to select .xlsx file</div>
+            <input type="file" id="bill-import-input" accept=".xlsx,.xls" style="display:none" onchange="handleBillImportFile(this)" />
+          </div>
+          <div id="bill-import-status" style="margin-top:12px;font-size:13px;"></div>
         </div>
 
         <div class="filter-tabs" style="margin-bottom:24px;">
@@ -1841,6 +1862,43 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
   </div>
 </div>
 
+
+<!-- ════════════════════════════════════════════════════════════
+     EDIT BILL MODAL — admin/president/secretary/treasurer only
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="edit-bill-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Edit Bill</h2>
+      <button class="modal-close" onclick="closeEditBillModal()">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px;" id="edit-bill-info"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Total Amount Due (₹) *</label>
+        <input class="form-input" type="number" id="eb-amount-due" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount Paid (₹)</label>
+        <input class="form-input" type="number" id="eb-amount-paid" min="0" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-select" id="eb-status">
+        <option value="unpaid">Unpaid</option>
+        <option value="partial">Partial</option>
+        <option value="paid">Paid</option>
+        <option value="waived">Waived</option>
+      </select>
+    </div>
+    <div id="eb-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditBillModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="eb-submit-btn" onclick="submitEditBill()">Save Changes</button>
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      RESIDENT EDIT PROFILE MODAL
@@ -3302,6 +3360,7 @@ function renderBills() {
           <div style="display:flex;gap:6px;flex-wrap:wrap;">
             ${canPay ? `<button class="btn-sm btn-sm-outline" onclick="openPaymentModal('${b.id}')">Record Payment</button>` : ''}
             ${parseFloat(b.amount_paid) > 0 ? `<button class="btn-sm btn-sm-outline" onclick="viewBillPayments('${b.id}')">🧾 Payments</button>` : ''}
+            ${canDelete() ? `<button class="btn-sm btn-sm-outline" onclick="openEditBillModal('${b.id}','${b.house_number}','${b.member_name}','${b.billing_month}',${b.total_amount_due},${b.amount_paid},'${b.status}')">✏️ Edit</button>` : ''}
           </div>
         </td>
       </tr>`;
@@ -4867,6 +4926,149 @@ async function exportBillsCSV() {
     alert('Export failed: ' + err.message);
     event.target.textContent = '⬇ Export CSV';
     event.target.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   BILL IMPORT — historical maintenance bills from XLSX
+   ════════════════════════════════════════════════════════ */
+
+function toggleBillImportPanel() {
+  document.getElementById('bill-import-panel').classList.toggle('hidden');
+}
+
+function handleBillImportFile(input) {
+  if (!input.files || !input.files[0]) return;
+  const statusEl = document.getElementById('bill-import-status');
+  statusEl.textContent = 'Reading file...';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+      const sheet    = workbook.Sheets[workbook.SheetNames[0]];
+      const rows     = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      if (rows.length === 0) {
+        statusEl.innerHTML = '<span style="color:var(--red);">No data rows found.</span>';
+        return;
+      }
+
+      function parseImportDate(val) {
+        if (!val) return null;
+        if (typeof val === 'object' && val instanceof Date) return val.toISOString().split('T')[0];
+        const s = String(val).trim();
+        const dmy = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const d = new Date(s); return isNaN(d) ? null : d.toISOString().split('T')[0];
+      }
+
+      function normMode(val) {
+        const v = String(val || '').trim().toLowerCase().replace(/\s+/g,'_');
+        const map = { cheque:'cheque', check:'cheque', cash:'cash',
+          upi:'online_upi', neft:'online_neft', rtgs:'online_rtgs',
+          dd:'demand_draft', imps:'online_neft' };
+        return map[v] || ((['cash','cheque','online_upi','online_neft','online_rtgs','demand_draft'].includes(v)) ? v : 'cash');
+      }
+
+      const bills = rows
+        .filter(r => r.house_number && r.billing_month)
+        .map(r => ({
+          houseNumber:   String(r.house_number   || '').trim(),
+          billingMonth:  parseImportDate(r.billing_month),
+          financialYear: String(r.financial_year || '').trim(),
+          amountDue:     parseFloat(r.amount_due)  || 0,
+          amountPaid:    parseFloat(r.amount_paid) || 0,
+          paymentDate:   parseImportDate(r.payment_date) || null,
+          paymentMode:   normMode(r.payment_mode),
+          remarks:       String(r.remarks || '').trim() || null,
+        }))
+        .filter(r => r.billingMonth);
+
+      statusEl.textContent = `Found ${bills.length} rows. Importing...`;
+
+      let succeeded = 0, allFailed = [];
+      const BATCH = 50;
+      for (let i = 0; i < bills.length; i += BATCH) {
+        const batch  = bills.slice(i, i + BATCH);
+        const result = await apiRequest('/api/bills/import', {
+          method: 'POST',
+          body: JSON.stringify({ bills: batch }),
+        });
+        succeeded   += result.successCount;
+        allFailed    = allFailed.concat(result.failed || []);
+        statusEl.textContent = `Importing... ${Math.min(i + BATCH, bills.length)} / ${bills.length}`;
+      }
+
+      statusEl.innerHTML =
+        `<span style="color:var(--green);">✅ Imported ${succeeded} of ${bills.length} bills.</span>` +
+        (allFailed.length ? `<br><span style="color:var(--red);">⚠️ ${allFailed.length} failed:</span><br>` +
+          allFailed.map(f => `<span style="font-size:12px;color:var(--red);">• ${f.row}: ${f.error}</span>`).join('<br>') : '');
+
+      input.value = '';
+      await loadBills();
+      await loadQuarterlySummary();
+    } catch (err) {
+      statusEl.innerHTML = `<span style="color:var(--red);">Error: ${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(input.files[0]);
+}
+
+/* ════════════════════════════════════════════════════════
+   EDIT BILL MODAL — admin/president/secretary/treasurer
+   ════════════════════════════════════════════════════════ */
+
+let currentEditBillId = null;
+
+function openEditBillModal(id, house, name, billingMonth, amountDue, amountPaid, status) {
+  currentEditBillId = id;
+  const monthLabel = new Date(billingMonth).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  document.getElementById('edit-bill-info').textContent =
+    `${house} — ${name} — ${monthLabel}`;
+  document.getElementById('eb-amount-due').value  = amountDue;
+  document.getElementById('eb-amount-paid').value = amountPaid;
+  document.getElementById('eb-status').value      = status;
+  document.getElementById('eb-error').classList.add('hidden');
+  document.getElementById('edit-bill-modal').classList.remove('hidden');
+}
+
+function closeEditBillModal() {
+  document.getElementById('edit-bill-modal').classList.add('hidden');
+  currentEditBillId = null;
+}
+
+async function submitEditBill() {
+  const btn = document.getElementById('eb-submit-btn');
+  const err = document.getElementById('eb-error');
+  err.classList.add('hidden');
+
+  const amountDue  = parseFloat(document.getElementById('eb-amount-due').value);
+  const amountPaid = parseFloat(document.getElementById('eb-amount-paid').value) || 0;
+  const status     = document.getElementById('eb-status').value;
+
+  if (isNaN(amountDue) || amountDue < 0) {
+    err.textContent = 'Please enter a valid amount due.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+
+  try {
+    await apiRequest(`/api/bills/${currentEditBillId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ totalAmountDue: amountDue, amountPaid, status }),
+    });
+    closeEditBillModal();
+    await loadBills();
+    await loadQuarterlySummary();
+  } catch (e) {
+    err.textContent = e.message || 'Could not update bill.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Changes';
   }
 }
 
