@@ -998,6 +998,7 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
           <div class="table-top">
             <div style="font-size:15px;font-weight:600;color:var(--navy);">Expense Records</div>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button class="btn-sm btn-sm-outline" onclick="exportExpensesCSV()" style="padding:7px 14px;font-size:13px;">⬇ Export CSV</button>
               <!-- Month + year filter -->
               <select class="form-select" id="fin-filter-month" onchange="loadExpenses()" style="width:130px;padding:7px 10px;font-size:13px;">
                 <option value="">All Months</option>
@@ -1109,7 +1110,28 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
             <h2 class="page-title">Maintenance Bills</h2>
             <p class="page-sub">Track dues, record payments, and generate monthly bills</p>
           </div>
-          <button class="btn-add btn-gold write-only" onclick="openGenerateBillsModal()">+ Generate Bills</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-sm btn-sm-outline" onclick="exportBillsCSV()" style="padding:7px 14px;font-size:13px;">⬇ Export CSV</button>
+            <button class="btn-add btn-gold write-only" onclick="openGenerateBillsModal()">+ Generate Bills</button>
+          </div>
+        </div>
+
+        <!-- ── Quarterly Summary Cards ── -->
+        <div style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+            <div style="font-size:15px;font-weight:600;color:var(--navy);">Quarterly Summary</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <select class="form-select" id="bills-fy-year" onchange="loadQuarterlySummary()" style="width:110px;padding:7px 10px;font-size:13px;"></select>
+              <button class="btn-sm btn-sm-outline" onclick="loadQuarterlySummary()" style="padding:7px 12px;">↻ Refresh</button>
+            </div>
+          </div>
+          <div class="metrics-grid" id="quarterly-cards-grid">
+            <!-- Populated by loadQuarterlySummary() -->
+            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q1 (Jan–Mar)</div><div class="metric-val">—</div></div>
+            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q2 (Apr–Jun)</div><div class="metric-val">—</div></div>
+            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q3 (Jul–Sep)</div><div class="metric-val">—</div></div>
+            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q4 (Oct–Dec)</div><div class="metric-val">—</div></div>
+          </div>
         </div>
 
         <div class="filter-tabs" style="margin-bottom:24px;">
@@ -2869,7 +2891,7 @@ function showDash(view) {
   if (view === 'members')        loadMembers();
   if (view === 'notices')        loadNotices();
   if (view === 'complaints')     loadComplaints();
-  if (view === 'bills')          loadBills();
+  if (view === 'bills')          { loadBills(); loadQuarterlySummary(); }
   if (view === 'facilities')     loadHallBookings();
   if (view === 'resident-home')  loadResidentHome();
   if (view === 'res-bills')      loadResBills();
@@ -4734,6 +4756,185 @@ async function promptResRating(id) {
     await loadResComplaints();
   } catch (e) {
     alert('Could not submit rating: ' + e.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   CSV EXPORT — Expenses and Maintenance Bills
+   Always fetches ALL records (no filter applied) so the
+   exported file is a complete historical record.
+   ════════════════════════════════════════════════════════ */
+
+// Generic CSV download helper
+function downloadCSV(filename, headers, rows) {
+  const escape = val => {
+    const str = (val === null || val === undefined) ? '' : String(val);
+    // Wrap in quotes if contains comma, quote, or newline
+    return str.includes(',') || str.includes('"') || str.includes('\n')
+      ? `"${str.replace(/"/g, '""')}"` : str;
+  };
+  const csv = [
+    headers.map(escape).join(','),
+    ...rows.map(row => row.map(escape).join(',')),
+  ].join('\r\n');
+
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' }); // BOM for Excel
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Export ALL expenses (ignores current month/year/category filter)
+async function exportExpensesCSV() {
+  try {
+    const btn = event.target;
+    btn.textContent = 'Exporting...';
+    btn.disabled = true;
+
+    const rows = await apiRequest('/api/expenses'); // no query params = all records
+
+    const modeLabel = {
+      cash:'Cash', cheque:'Cheque', online_upi:'UPI',
+      online_neft:'NEFT', online_rtgs:'RTGS', demand_draft:'Demand Draft',
+    };
+
+    const headers = [
+      'Voucher No.', 'Date', 'Category', 'Description',
+      'Payee / Vendor', 'GST Number', 'Bill Number',
+      'Amount (₹)', 'GST Amount (₹)', 'Payment Mode',
+    ];
+
+    const csvRows = rows.map(e => [
+      e.voucher_number || '',
+      e.expense_date ? new Date(e.expense_date).toLocaleDateString('en-IN') : '',
+      e.category || '',
+      e.description || '',
+      e.vendor_name || '',
+      e.vendor_gst_number || '',
+      e.invoice_number || '',
+      parseFloat(e.amount || 0).toFixed(2),
+      parseFloat(e.gst_amount || 0).toFixed(2),
+      modeLabel[e.payment_mode] || e.payment_mode || '',
+    ]);
+
+    const today    = new Date().toISOString().split('T')[0];
+    downloadCSV(`KGC_Expenses_All_${today}.csv`, headers, csvRows);
+
+    btn.textContent = '⬇ Export CSV';
+    btn.disabled = false;
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+    event.target.textContent = '⬇ Export CSV';
+    event.target.disabled = false;
+  }
+}
+
+// Export ALL maintenance bills with payment details
+async function exportBillsCSV() {
+  try {
+    const btn = event.target;
+    btn.textContent = 'Exporting...';
+    btn.disabled = true;
+
+    const rows = await apiRequest('/api/bills'); // all bills, no filter
+
+    const headers = [
+      'House No.', 'Member Name', 'Billing Month',
+      'Total Due (₹)', 'Amount Paid (₹)', 'Balance Due (₹)',
+      'Status', 'Financial Year',
+    ];
+
+    const csvRows = rows.map(b => [
+      b.house_number || '',
+      b.member_name  || '',
+      b.billing_month ? new Date(b.billing_month).toLocaleDateString('en-IN', {month:'long', year:'numeric'}) : '',
+      parseFloat(b.total_amount_due || 0).toFixed(2),
+      parseFloat(b.amount_paid      || 0).toFixed(2),
+      parseFloat(b.balance_due      || 0).toFixed(2),
+      b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : '',
+      b.financial_year || '',
+    ]);
+
+    const today = new Date().toISOString().split('T')[0];
+    downloadCSV(`KGC_MaintenanceBills_All_${today}.csv`, headers, csvRows);
+
+    btn.textContent = '⬇ Export CSV';
+    btn.disabled = false;
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+    event.target.textContent = '⬇ Export CSV';
+    event.target.disabled = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════════
+   QUARTERLY BILLING SUMMARY
+   Loads maintenance collected + expenses per quarter
+   for the selected calendar year and renders the 4 cards.
+   ════════════════════════════════════════════════════════ */
+
+function initBillsYearDropdown() {
+  const sel = document.getElementById('bills-fy-year');
+  if (!sel || sel.options.length > 1) return;
+  const cur = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = cur; y >= 2018; y--) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === cur) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+async function loadQuarterlySummary() {
+  initBillsYearDropdown();
+  const year = document.getElementById('bills-fy-year')?.value || new Date().getFullYear();
+  const grid = document.getElementById('quarterly-cards-grid');
+  if (!grid) return;
+
+  try {
+    const data = await apiRequest(`/api/bills/quarterly-summary?year=${year}`);
+    const fmt  = n => '₹' + Math.abs(parseFloat(n)).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    const curQ = Math.ceil((new Date().getMonth() + 1) / 3);
+    const curY = new Date().getFullYear();
+
+    grid.innerHTML = data.quarters.map(q => {
+      const surplus    = parseFloat(q.surplus);
+      const isPositive = surplus >= 0;
+      const isCurrent  = parseInt(year) === curY && q.quarter === curQ;
+      const isFuture   = parseInt(year) > curY || (parseInt(year) === curY && q.quarter > curQ);
+
+      return `
+        <div class="metric-card" style="${isCurrent ? 'border:2px solid var(--gold,#c9a227);' : ''}${isFuture ? 'opacity:0.5;' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+            <div class="metric-lbl">${q.label}</div>
+            ${isCurrent ? '<span style="font-size:10px;background:var(--gold-bg,#fdf3d8);color:var(--amber,#8a6d1a);padding:2px 7px;border-radius:10px;font-weight:600;">Current</span>' : ''}
+          </div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:8px;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+              <span>Collected</span>
+              <strong style="color:var(--green);">${fmt(q.collected)}</strong>
+            </div>
+            <div style="display:flex;justify-content:space-between;">
+              <span>Expenses</span>
+              <strong style="color:var(--red);">${fmt(q.expenses)}</strong>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:12px;color:var(--text2);">${isPositive ? 'Surplus' : 'Deficit'}</span>
+            <span class="metric-val" style="font-size:18px;color:${isPositive ? 'var(--green)' : 'var(--red)'};">
+              ${isPositive ? '+' : '−'}${fmt(surplus)}
+            </span>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    document.getElementById('quarterly-cards-grid').innerHTML =
+      `<div style="color:var(--red);font-size:13px;padding:16px;">Could not load quarterly summary: ${err.message}</div>`;
   }
 }
 
