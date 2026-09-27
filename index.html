@@ -5344,19 +5344,26 @@ function handleFinanceFile(input) {
         return map[raw] || 'cash';
       }
 
+      // Clean a cell value — treat 'None', 'null', '' as empty
+      function clean(val) {
+        if (val === null || val === undefined) return '';
+        const s = String(val).trim();
+        return (s === 'None' || s === 'null' || s === 'undefined') ? '' : s;
+      }
+
       // Map rows to the format the backend expects
       const expenses = rows
         .filter(r => r.date && r.amount)
         .map(r => ({
           date:         parseDate(r.date),
-          category:     String(r.category     || 'Others').trim(),
-          description:  String(r.description  || '—').trim(),
-          payee_name:   String(r.payee_name   || '—').trim(),
+          category:     clean(r.category)     || 'Others',
+          description:  clean(r.description)  || '',
+          payee_name:   clean(r.payee_name)   || '',
           amount:       parseFloat(r.amount)   || 0,
           gst_amount:   parseFloat(r.gst_amount || 0),
           payment_mode: normaliseMode(r.payment_mode),
-          bill_number:  String(r.bill_number  || '').trim() || null,
-          gst_number:   String(r.gst_number   || '').trim() || null,
+          bill_number:  clean(r.bill_number)  || null,
+          gst_number:   clean(r.gst_number)   || null,
         }))
         .filter(r => r.date); // skip rows where date couldn't be parsed
 
@@ -5377,7 +5384,8 @@ function handleFinanceFile(input) {
 
       statusEl.innerHTML =
         `<span style="color:var(--green);">✅ Imported ${succeeded} of ${expenses.length} expenses.</span>` +
-        (failed.length ? ` <span style="color:var(--red);">⚠️ ${failed.length} failed.</span>` : '');
+        (failed.length ? `<br><span style="color:var(--red);">⚠️ ${failed.length} failed:</span><br>` +
+          failed.map(f => `<span style="color:var(--red);font-size:12px;">• ${f.row}: ${f.error}</span>`).join('<br>') : '');
 
       input.value = '';
       await Promise.all([loadExpenses(), loadFinanceSummary()]);
