@@ -500,6 +500,21 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
   .nav-brand    { font-size: 15px; }
   .monthly-grid { grid-template-columns: repeat(2, 1fr); }
 }
+/* ── Bilingual support ── */
+body.lang-hi,
+body.lang-hi h1, body.lang-hi h2, body.lang-hi h3, body.lang-hi h4,
+body.lang-hi .page-title, body.lang-hi .section-title, body.lang-hi .brand,
+body.lang-hi .metric-val, body.lang-hi .stat-num {
+  font-family: 'Nirmala UI','Kohinoor Devanagari','Noto Sans Devanagari','Mangal','Segoe UI',sans-serif !important;
+}
+#lang-toggle {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  background: var(--gold, #c9a227); color: var(--navy, #0d1b3e);
+  border: none; border-radius: 24px; padding: 10px 18px;
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.25); font-family: 'Nirmala UI','Noto Sans Devanagari',sans-serif;
+}
+#lang-toggle:hover { filter: brightness(1.05); }
 </style>
 </head>
 <body>
@@ -1099,77 +1114,86 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
       <div id="dash-bills" class="hidden">
         <div class="page-header">
           <div>
-            <h2 class="page-title">Maintenance Bills</h2>
-            <p class="page-sub">Track dues, record payments, and generate monthly bills</p>
+            <h2 class="page-title">Maintenance Payments</h2>
+            <p class="page-sub">Record of maintenance payments received, month by month</p>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn-sm btn-sm-outline" onclick="exportBillsCSV()" style="padding:7px 14px;font-size:13px;">⬇ Export CSV</button>
-            <button class="btn-sm btn-sm-outline admin-only" onclick="toggleBillImportPanel()" style="padding:7px 14px;font-size:13px;">⬆ Import Bills (XLSX)</button>
-            <button class="btn-add btn-gold write-only" onclick="openGenerateBillsModal()">+ Generate Bills</button>
+            <button class="btn-sm btn-sm-outline" onclick="exportLedgerCSV()" style="padding:7px 14px;font-size:13px;">&#11015; Export CSV</button>
+            <button class="btn-sm btn-sm-outline admin-only" onclick="toggleLedgerImportPanel()" style="padding:7px 14px;font-size:13px;">&#11014; Import (XLSX)</button>
+            <button class="btn-add btn-gold write-only" onclick="openAddPaymentModal()">+ Add Payment</button>
           </div>
         </div>
 
-        <!-- ── Quarterly Summary Cards ── -->
+        <!-- Monthly Collection Summary -->
         <div style="margin-bottom:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-            <div style="font-size:15px;font-weight:600;color:var(--navy);">Quarterly Summary</div>
+            <div style="font-size:15px;font-weight:600;color:var(--navy);">Monthly Collections</div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <select class="form-select" id="bills-fy-year" onchange="loadQuarterlySummary()" style="width:110px;padding:7px 10px;font-size:13px;"></select>
-              <button class="btn-sm btn-sm-outline" onclick="loadQuarterlySummary()" style="padding:7px 12px;">↻ Refresh</button>
+              <select class="form-select" id="ledger-fy-year" onchange="loadLedgerSummary()" style="width:130px;padding:7px 10px;font-size:13px;"></select>
+              <button class="btn-sm btn-sm-outline" onclick="loadLedgerSummary()" style="padding:7px 12px;">&#8635; Refresh</button>
             </div>
           </div>
-          <div class="metrics-grid" id="quarterly-cards-grid">
-            <!-- Populated by loadQuarterlySummary() -->
-            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q1 (Jan–Mar)</div><div class="metric-val">—</div></div>
-            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q2 (Apr–Jun)</div><div class="metric-val">—</div></div>
-            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q3 (Jul–Sep)</div><div class="metric-val">—</div></div>
-            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Q4 (Oct–Dec)</div><div class="metric-val">—</div></div>
+          <div class="metrics-grid" id="ledger-month-cards">
+            <div class="metric-card" style="opacity:0.5;"><div class="metric-lbl">Loading...</div><div class="metric-val">&mdash;</div></div>
           </div>
+          <div id="ledger-fy-total" style="margin-top:12px;font-size:14px;font-weight:600;color:var(--navy);text-align:right;"></div>
         </div>
 
-        <!-- ── Bill Import Panel (admin only) ── -->
-        <div id="bill-import-panel" class="info-section hidden admin-only" style="margin-bottom:20px;">
-          <h3>Import Historical Bills from Excel</h3>
+        <!-- Import Panel (admin only) -->
+        <div id="ledger-import-panel" class="info-section hidden admin-only" style="margin-bottom:20px;">
+          <h3>Import Payments from Excel</h3>
           <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
-            Each row is matched to a resident via their house number. Multiple months can be in one file.
+            Import the payment register directly. Rows marked CANCELLED are skipped automatically. Multiple months can be in one file &mdash; all sheets are read.
           </p>
           <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:2.2;">
-            <strong style="color:var(--navy);">Required columns:</strong>
-            <code>house_number</code>, <code>billing_month</code> (DDMMYYYY or YYYY-MM-DD), <code>financial_year</code> (e.g. 2025-2026)<br/>
-            <strong style="color:var(--navy);">Optional columns:</strong>
-            <code>amount_due</code> (defaults to 0), <code>amount_paid</code>, <code>payment_date</code> (DDMMYYYY), <code>payment_mode</code> (Cash/Cheque/UPI/NEFT/RTGS), <code>bill_book_number</code>
+            <strong style="color:var(--navy);">Expected columns:</strong>
+            <code>Date</code>, <code>Name</code>, <code>House No</code>, <code>Description</code>, <code>Register Entry Amount</code>, <code>Payment Mode</code>, <code>Bill Book1 No.</code>, <code>BB1 Receipt No.</code>
           </div>
-          <div class="upload-box" onclick="document.getElementById('bill-import-input').click()" style="border:2px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;cursor:pointer;">
-            <div style="font-size:24px;margin-bottom:6px;">📂</div>
+          <div class="upload-box" onclick="document.getElementById('ledger-import-input').click()" style="border:2px dashed var(--border2);border-radius:10px;padding:20px;text-align:center;cursor:pointer;">
+            <div style="font-size:24px;margin-bottom:6px;">&#128193;</div>
             <div style="font-size:14px;font-weight:500;color:var(--navy);">Click to select .xlsx file</div>
-            <input type="file" id="bill-import-input" accept=".xlsx,.xls" style="display:none" onchange="handleBillImportFile(this)" />
+            <input type="file" id="ledger-import-input" accept=".xlsx,.xls" style="display:none" onchange="handleLedgerImportFile(this)" />
           </div>
-          <div id="bill-import-status" style="margin-top:12px;font-size:13px;"></div>
+          <div id="ledger-import-status" style="margin-top:12px;font-size:13px;"></div>
         </div>
 
-        <div class="filter-tabs" style="margin-bottom:24px;">
-          <button class="ftab active" onclick="filterBills('all', this)">All</button>
-          <button class="ftab" onclick="filterBills('unpaid', this)">Unpaid</button>
-          <button class="ftab" onclick="filterBills('partial', this)">Partial</button>
-          <button class="ftab" onclick="filterBills('paid', this)">Paid</button>
-          <button class="ftab" onclick="filterBills('waived', this)">Waived</button>
+        <!-- Month filter -->
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;">
+          <select class="form-select" id="ledger-filter-month" onchange="loadLedger()" style="width:150px;padding:8px 10px;font-size:13px;">
+            <option value="">All Months</option>
+            <option value="01">January</option><option value="02">February</option>
+            <option value="03">March</option><option value="04">April</option>
+            <option value="05">May</option><option value="06">June</option>
+            <option value="07">July</option><option value="08">August</option>
+            <option value="09">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <select class="form-select" id="ledger-filter-year" onchange="loadLedger()" style="width:110px;padding:8px 10px;font-size:13px;"></select>
         </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>House</th>
-              <th>Member</th>
-              <th>Billing Month</th>
-              <th>Amount Due</th>
-              <th>Paid</th>
-              <th>Balance</th>
-              <th>Status</th>
-              <th class="admin-only">Action</th>
-            </tr>
-          </thead>
-          <tbody id="bills-tbody"></tbody>
-        </table>
+        <div class="table-wrap">
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Name</th>
+                  <th>House No.</th>
+                  <th>Description</th>
+                  <th>Amount</th>
+                  <th>Mode</th>
+                  <th>Bill Book</th>
+                  <th>Receipt No.</th>
+                  <th class="admin-only">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ledger-tbody">
+                <tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="ledger-total-row" style="padding:12px 16px;font-size:14px;font-weight:600;color:var(--navy);border-top:1px solid var(--border);text-align:right;"></div>
+        </div>
       </div>
 
       <!-- ══════════════════════════════
@@ -1926,6 +1950,72 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeEditExpenseModal()">Cancel</button>
       <button class="btn-add btn-gold" id="ee-submit-btn" onclick="submitEditExpense()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT PAYMENT MODAL (payment ledger) -->
+<div class="modal-overlay hidden" id="payment-entry-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="pe-modal-title">Add Payment</h2>
+      <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="pe-date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount (Rs.) *</label>
+        <input class="form-input" type="number" id="pe-amount" min="0" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Payer Name *</label>
+      <input class="form-input" id="pe-name" placeholder="Name as in register" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">House No.</label>
+        <input class="form-input" id="pe-house" placeholder="e.g. K-05, R-56, A1-26" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <input class="form-input" id="pe-description" placeholder="Maintenance" value="Maintenance" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Payment Mode</label>
+        <select class="form-select" id="pe-mode">
+          <option value="cash">Cash</option>
+          <option value="online">Online</option>
+          <option value="cheque">Cheque</option>
+          <option value="online_upi">UPI</option>
+          <option value="online_neft">NEFT</option>
+          <option value="online_rtgs">RTGS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bill Book No.</label>
+        <input class="form-input" id="pe-billbook" placeholder="e.g. 57" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Receipt No.</label>
+      <input class="form-input" id="pe-receipt" placeholder="e.g. 6696" />
+    </div>
+
+    <div id="pe-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="pe-submit-btn" onclick="submitPaymentEntry()">Save</button>
     </div>
   </div>
 </div>
@@ -3016,7 +3106,7 @@ function showDash(view) {
   if (view === 'members')        loadMembers();
   if (view === 'notices')        loadNotices();
   if (view === 'complaints')     loadComplaints();
-  if (view === 'bills')          { loadBills(); loadQuarterlySummary(); }
+  if (view === 'bills')          { initLedgerYearDropdowns(); loadLedger(); loadLedgerSummary(); }
   if (view === 'facilities')     loadHallBookings();
   if (view === 'resident-home')  loadResidentHome();
   if (view === 'res-bills')      loadResBills();
@@ -5278,6 +5368,335 @@ async function submitEditBill() {
 }
 
 /* ════════════════════════════════════════════════════════
+   PAYMENT LEDGER — flat payment log (transition phase)
+   ════════════════════════════════════════════════════════ */
+
+let ledgerRows = []; // cached for edit lookup
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const LEDGER_MODE_LABELS = {
+  cash:'Cash', cheque:'Cheque', online:'Online',
+  online_upi:'UPI', online_neft:'NEFT', online_rtgs:'RTGS', demand_draft:'DD',
+};
+
+function initLedgerYearDropdowns() {
+  const cur = new Date().getFullYear();
+  // FY summary dropdown
+  const fySel = document.getElementById('ledger-fy-year');
+  if (fySel && fySel.options.length === 0) {
+    for (let y = cur; y >= 2018; y--) {
+      const label = `FY ${y}-${String(y+1).slice(-2)}`;
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = label;
+      // Default to current FY (if before April, FY started last year)
+      const fyStart = (new Date().getMonth() >= 3) ? cur : cur - 1;
+      if (y === fyStart) opt.selected = true;
+      fySel.appendChild(opt);
+    }
+  }
+  // Table filter year dropdown
+  const yrSel = document.getElementById('ledger-filter-year');
+  if (yrSel && yrSel.options.length <= 1) {
+    yrSel.innerHTML = '<option value="">All Years</option>';
+    for (let y = cur; y >= 2018; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      if (y === cur) opt.selected = true;
+      yrSel.appendChild(opt);
+    }
+  }
+}
+
+// Load monthly collection summary cards for the selected FY
+async function loadLedgerSummary() {
+  const grid = document.getElementById('ledger-month-cards');
+  const totalEl = document.getElementById('ledger-fy-total');
+  if (!grid) return;
+  const year = document.getElementById('ledger-fy-year')?.value || new Date().getFullYear();
+
+  try {
+    const data = await apiRequest(`/api/ledger/summary?year=${year}`);
+    const fmt = n => 'Rs. ' + parseFloat(n).toLocaleString('en-IN', {maximumFractionDigits:0});
+
+    // FY runs Apr(4) .. Mar(3). Build 12 month slots in that order.
+    const order = [4,5,6,7,8,9,10,11,12,1,2,3];
+    const byMonth = {};
+    data.months.forEach(m => { byMonth[m.month] = m; });
+
+    grid.innerHTML = order.map(mNum => {
+      const m = byMonth[mNum];
+      const total = m ? parseFloat(m.total) : 0;
+      const count = m ? m.count : 0;
+      const faded = total === 0 ? 'opacity:0.45;' : '';
+      // The calendar year for this month within the FY
+      const calYear = mNum >= 4 ? data.fyStart : data.fyStart + 1;
+      return `
+        <div class="metric-card" style="${faded}">
+          <div class="metric-lbl">${MONTH_NAMES[mNum-1]} ${String(calYear).slice(-2)}</div>
+          <div class="metric-val" style="color:var(--green);font-size:20px;">${fmt(total)}</div>
+          <div class="metric-delta" style="color:var(--text2);">${count} payment${count === 1 ? '' : 's'}</div>
+        </div>`;
+    }).join('');
+
+    totalEl.innerHTML = `FY ${data.fyLabel} total: <span style="color:var(--green);">${fmt(data.fyTotal)}</span> across ${data.fyCount} payments`;
+  } catch (err) {
+    grid.innerHTML = `<div style="color:var(--red);padding:16px;">${err.message}</div>`;
+  }
+}
+
+// Load the payment table (filtered by month/year)
+async function loadLedger() {
+  const tbody = document.getElementById('ledger-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>';
+
+  try {
+    const month = document.getElementById('ledger-filter-month')?.value || '';
+    const year  = document.getElementById('ledger-filter-year')?.value  || '';
+    let qs = [];
+    if (month) qs.push(`month=${month}`);
+    if (year)  qs.push(`year=${year}`);
+    const query = qs.length ? '?' + qs.join('&') : '';
+
+    ledgerRows = await apiRequest('/api/ledger' + query);
+
+    if (ledgerRows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text2);">No payments found for this period.</td></tr>';
+      document.getElementById('ledger-total-row').textContent = '';
+      return;
+    }
+
+    tbody.innerHTML = ledgerRows.map(p => {
+      const dateStr = new Date(p.payment_date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+      const amt = parseFloat(p.amount).toLocaleString('en-IN', {maximumFractionDigits:0});
+      return `<tr>
+        <td style="white-space:nowrap;">${dateStr}</td>
+        <td style="font-weight:500;">${p.payer_name}</td>
+        <td>${p.house_number || '-'}</td>
+        <td style="color:var(--text2);font-size:13px;">${p.description || 'Maintenance'}</td>
+        <td style="font-weight:600;">Rs. ${amt}</td>
+        <td><span class="badge badge-navy">${LEDGER_MODE_LABELS[p.payment_mode] || p.payment_mode}</span></td>
+        <td>${p.bill_book_number || '-'}</td>
+        <td>${p.receipt_number || '-'}</td>
+        <td class="admin-only" style="white-space:nowrap;">
+          <button class="btn-sm btn-sm-outline" onclick="openEditPaymentModal('${p.id}')">Edit</button>
+          <button class="btn-sm btn-sm-red" onclick="deleteLedgerEntry('${p.id}')">Del</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const total = ledgerRows.reduce((s,p) => s + parseFloat(p.amount), 0);
+    document.getElementById('ledger-total-row').innerHTML =
+      `Total for selected period: <span style="color:var(--green);">Rs. ${total.toLocaleString('en-IN', {maximumFractionDigits:0})}</span> (${ledgerRows.length} payments)`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--red);">${err.message}</td></tr>`;
+  }
+}
+
+// ── Add / Edit payment modal ──
+let currentEditLedgerId = null;
+
+function openAddPaymentModal() {
+  currentEditLedgerId = null;
+  document.getElementById('pe-modal-title').textContent = 'Add Payment';
+  document.getElementById('pe-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pe-amount').value = '';
+  document.getElementById('pe-name').value = '';
+  document.getElementById('pe-house').value = '';
+  document.getElementById('pe-description').value = 'Maintenance';
+  document.getElementById('pe-mode').value = 'cash';
+  document.getElementById('pe-billbook').value = '';
+  document.getElementById('pe-receipt').value = '';
+  document.getElementById('pe-error').classList.add('hidden');
+  document.getElementById('payment-entry-modal').classList.remove('hidden');
+}
+
+function openEditPaymentModal(id) {
+  const p = ledgerRows.find(r => r.id === id);
+  if (!p) { alert('Could not find entry. Reload the page.'); return; }
+  currentEditLedgerId = id;
+  document.getElementById('pe-modal-title').textContent = 'Edit Payment';
+  document.getElementById('pe-date').value = p.payment_date ? p.payment_date.split('T')[0] : '';
+  document.getElementById('pe-amount').value = parseFloat(p.amount);
+  document.getElementById('pe-name').value = p.payer_name || '';
+  document.getElementById('pe-house').value = p.house_number || '';
+  document.getElementById('pe-description').value = p.description || 'Maintenance';
+  document.getElementById('pe-mode').value = p.payment_mode || 'cash';
+  document.getElementById('pe-billbook').value = p.bill_book_number || '';
+  document.getElementById('pe-receipt').value = p.receipt_number || '';
+  document.getElementById('pe-error').classList.add('hidden');
+  document.getElementById('payment-entry-modal').classList.remove('hidden');
+}
+
+function closePaymentModal() {
+  document.getElementById('payment-entry-modal').classList.add('hidden');
+  currentEditLedgerId = null;
+}
+
+async function submitPaymentEntry() {
+  const btn = document.getElementById('pe-submit-btn');
+  const err = document.getElementById('pe-error');
+  err.classList.add('hidden');
+
+  const body = {
+    paymentDate:    document.getElementById('pe-date').value,
+    payerName:      document.getElementById('pe-name').value.trim(),
+    houseNumber:    document.getElementById('pe-house').value.trim() || null,
+    description:    document.getElementById('pe-description').value.trim() || 'Maintenance',
+    amount:         parseFloat(document.getElementById('pe-amount').value),
+    paymentMode:    document.getElementById('pe-mode').value,
+    billBookNumber: document.getElementById('pe-billbook').value.trim() || null,
+    receiptNumber:  document.getElementById('pe-receipt').value.trim() || null,
+  };
+
+  if (!body.paymentDate || !body.payerName || isNaN(body.amount)) {
+    err.textContent = 'Date, payer name, and amount are required.';
+    err.classList.remove('hidden');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    if (currentEditLedgerId) {
+      await apiRequest(`/api/ledger/${currentEditLedgerId}`, { method:'PATCH', body: JSON.stringify(body) });
+    } else {
+      await apiRequest('/api/ledger', { method:'POST', body: JSON.stringify(body) });
+    }
+    closePaymentModal();
+    await Promise.all([loadLedger(), loadLedgerSummary()]);
+  } catch (e) {
+    err.textContent = e.message || 'Could not save.';
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save';
+  }
+}
+
+async function deleteLedgerEntry(id) {
+  if (!confirm('Delete this payment entry? This cannot be undone.')) return;
+  try {
+    await apiRequest(`/api/ledger/${id}`, { method:'DELETE' });
+    await Promise.all([loadLedger(), loadLedgerSummary()]);
+  } catch (e) {
+    alert('Could not delete: ' + e.message);
+  }
+}
+
+function toggleLedgerImportPanel() {
+  document.getElementById('ledger-import-panel').classList.toggle('hidden');
+}
+
+// ── Import from Excel (reads ALL sheets, skips CANCELLED) ──
+function handleLedgerImportFile(input) {
+  if (!input.files || !input.files[0]) return;
+  const statusEl = document.getElementById('ledger-import-status');
+  statusEl.textContent = 'Reading file...';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const workbook = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+      function parseDate(val) {
+        if (!val) return null;
+        if (typeof val === 'object' && val instanceof Date) return val.toISOString().split('T')[0];
+        const s = String(val).trim().replace(/\s/g, '');
+        if (/^\d{8}$/.test(s)) return `${s.slice(4,8)}-${s.slice(2,4)}-${s.slice(0,2)}`;
+        const dmy = s.match(/^(\d{1,2})[.\-\/](\d{1,2})[.\-\/](\d{4})$/);
+        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const d = new Date(s); return isNaN(d) ? null : d.toISOString().split('T')[0];
+      }
+
+      function normMode(val) {
+        const v = String(val || '').trim().toLowerCase().replace(/\s+/g,'_');
+        const map = { cash:'cash', online:'online', cheque:'cheque', check:'cheque',
+          upi:'online_upi', neft:'online_neft', rtgs:'online_rtgs', dd:'demand_draft' };
+        return map[v] || 'cash';
+      }
+
+      // Read every sheet, merge rows
+      let all = [];
+      for (const sheetName of workbook.SheetNames) {
+        if (sheetName.trim().toLowerCase() === 'shop') continue;
+        const sheet = workbook.Sheets[sheetName];
+        const rows  = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        rows.forEach(r => {
+          const name = String(r['Name'] || '').trim();
+          // Skip CANCELLED rows and rows without a name or amount
+          if (!name || name.toUpperCase() === 'CANCELLED') return;
+          const amount = parseFloat(r['Register Entry Amount']);
+          if (!amount || isNaN(amount)) return;
+          const date = parseDate(r['Date']);
+          if (!date) return;
+          all.push({
+            paymentDate:    date,
+            payerName:      name,
+            houseNumber:    String(r['House No'] || '').trim() || null,
+            description:    String(r['Description'] || 'Maintenance').trim() || 'Maintenance',
+            amount:         amount,
+            paymentMode:    normMode(r['Payment Mode']),
+            billBookNumber: String(r['Bill Book1 No.'] || '').trim() || null,
+            receiptNumber:  String(r['BB1 Receipt No.'] || '').trim() || null,
+          });
+        });
+      }
+
+      if (all.length === 0) {
+        statusEl.innerHTML = '<span style="color:var(--red);">No valid payment rows found.</span>';
+        return;
+      }
+
+      statusEl.textContent = `Found ${all.length} payments. Importing...`;
+
+      let succeeded = 0, failed = [];
+      const BATCH = 100;
+      for (let i = 0; i < all.length; i += BATCH) {
+        const batch  = all.slice(i, i + BATCH);
+        const result = await apiRequest('/api/ledger/import', {
+          method: 'POST', body: JSON.stringify({ payments: batch }),
+        });
+        succeeded += result.successCount;
+        failed = failed.concat(result.failed || []);
+        statusEl.textContent = `Importing... ${Math.min(i+BATCH, all.length)} / ${all.length}`;
+      }
+
+      statusEl.innerHTML =
+        `<span style="color:var(--green);">Imported ${succeeded} of ${all.length} payments.</span>` +
+        (failed.length ? `<br><span style="color:var(--red);">${failed.length} failed.</span>` : '');
+
+      input.value = '';
+      await Promise.all([loadLedger(), loadLedgerSummary()]);
+    } catch (err) {
+      statusEl.innerHTML = `<span style="color:var(--red);">Error: ${err.message}</span>`;
+    }
+  };
+  reader.readAsArrayBuffer(input.files[0]);
+}
+
+// Export all ledger entries to CSV
+async function exportLedgerCSV() {
+  try {
+    const rows = await apiRequest('/api/ledger');
+    const headers = ['Date','Name','House No.','Description','Amount','Payment Mode','Bill Book No.','Receipt No.'];
+    const csvRows = rows.map(p => [
+      p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '',
+      p.payer_name || '',
+      p.house_number || '',
+      p.description || '',
+      parseFloat(p.amount || 0).toFixed(2),
+      LEDGER_MODE_LABELS[p.payment_mode] || p.payment_mode || '',
+      p.bill_book_number || '',
+      p.receipt_number || '',
+    ]);
+    const today = new Date().toISOString().split('T')[0];
+    downloadCSV(`KGC_Payments_${today}.csv`, headers, csvRows);
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+  }
+}
+
+/* ════════════════════════════════════════════════════════
    QUARTERLY BILLING SUMMARY
    Loads maintenance collected + expenses per quarter
    for the selected calendar year and renders the 4 cards.
@@ -5808,5 +6227,436 @@ function handleFinanceFile(input) {
 }
 
 </script>
+<button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   BILINGUAL SUPPORT — English / Hindi (Devanagari)
+   Text-node translation with reversal + MutationObserver so
+   dynamically rendered content (tables, modals, badges) is
+   translated automatically. Nothing else about the layout changes.
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  // Exact English string  →  Hindi (Devanagari)
+  const DICT = {
+    // ── Nav / shell ──
+    'Home':'होम', 'About':'हमारे बारे में', 'Admin Login':'एडमिन लॉगिन',
+    'Logout':'लॉगआउट', 'Admin Portal':'एडमिन पोर्टल', 'Admin Portal →':'एडमिन पोर्टल →',
+    'Learn More':'और जानें',
+    'Est. 2018 · Sheetala Colony, Kohka, Bhilai':'स्थापित 2018 · शीतला कॉलोनी, कोहका, भिलाई',
+    'Your Community,':'आपका समुदाय,', 'Managed with Care':'देखभाल के साथ प्रबंधित',
+    'Why KGC-Admin':'केजीसी-एडमिन क्यों',
+    'Everything your society needs,':'आपकी सोसायटी की हर ज़रूरत,', 'in one place.':'एक ही जगह।',
+    'Member Directory':'सदस्य निर्देशिका', 'Maintenance Tracking':'मेंटेनेंस ट्रैकिंग',
+    'Analytics Dashboard':'एनालिटिक्स डैशबोर्ड',
+    'Visual reports on collections, occupancy, expense categories and year-over-year trends.':'संग्रह, अधिभोग, व्यय श्रेणियों और वर्ष-दर-वर्ष रुझानों पर दृश्य रिपोर्ट।',
+    'Secure Access':'सुरक्षित पहुँच', 'Notice Board':'सूचना पट्ट',
+    'Publish announcements and circulars to residents from a single admin interface.':'एक ही एडमिन इंटरफ़ेस से निवासियों के लिए घोषणाएँ और परिपत्र प्रकाशित करें।',
+    'Facility Management':'सुविधा प्रबंधन',
+    'Track maintenance requests, vendor contracts and common area bookings with ease.':'मेंटेनेंस अनुरोध, विक्रेता अनुबंध और सामान्य क्षेत्र बुकिंग आसानी से ट्रैक करें।',
+    'Society · All rights reserved':'सोसायटी · सर्वाधिकार सुरक्षित',
+
+    // ── About ──
+    'Our Society':'हमारी सोसायटी', 'A Thriving Community Since 2018':'2018 से एक समृद्ध समुदाय',
+    'Committee Members 2025–26':'समिति सदस्य 2025–26',
+    'Our Facilities':'हमारी सुविधाएँ', 'Life at Krishna Grand City':'कृष्णा ग्रैंड सिटी में जीवन',
+    'We take pride in maintaining world-class facilities for our residents and their families.':'हमें अपने निवासियों और उनके परिवारों के लिए विश्व-स्तरीय सुविधाएँ बनाए रखने पर गर्व है।',
+    'Gymnasium':'जिम',
+    'Fully equipped modern gym with certified trainers available Monday to Saturday.':'सोमवार से शनिवार तक प्रमाणित प्रशिक्षकों के साथ पूर्ण सुसज्जित आधुनिक जिम।',
+    'Community Hall':'सामुदायिक हॉल',
+    'Spacious hall for events, meetings, and celebrations — bookable by residents.':'आयोजनों, बैठकों और समारोहों के लिए विशाल हॉल — निवासियों द्वारा बुक किया जा सकता है।',
+    'Landscaped Gardens':'भूदृश्य उद्यान',
+    "3 acres of manicured green spaces, jogging tracks and children's play areas.":'3 एकड़ सुव्यवस्थित हरित स्थान, जॉगिंग ट्रैक और बच्चों के खेल क्षेत्र।',
+    '24/7 Security':'24/7 सुरक्षा',
+    'CCTV coverage, biometric entry and trained security personnel round-the-clock.':'चौबीसों घंटे सीसीटीवी कवरेज, बायोमेट्रिक प्रवेश और प्रशिक्षित सुरक्षाकर्मी।',
+    'Club House':'क्लब हाउस',
+    'Exclusive clubhouse with indoor games, library, and social spaces for residents.':'निवासियों के लिए इनडोर खेल, पुस्तकालय और सामाजिक स्थानों वाला विशेष क्लब हाउस।',
+
+    // ── Login ──
+    'Sign in with your email, phone number, or house number':'अपने ईमेल, फ़ोन नंबर या मकान नंबर से साइन इन करें',
+    '(e.g.':'(जैसे', ') and your password.':') और अपना पासवर्ड।',
+    'Incorrect login ID or password. Please try again.':'गलत लॉगिन आईडी या पासवर्ड। कृपया पुनः प्रयास करें।',
+    'Email, phone, or house number':'ईमेल, फ़ोन या मकान नंबर', 'Password':'पासवर्ड',
+    'Sign In →':'साइन इन →', 'Signing in…':'साइन इन हो रहा है…',
+    'Please enter both a login ID and password.':'कृपया लॉगिन आईडी और पासवर्ड दोनों दर्ज करें।',
+
+    // ── Sidebar ──
+    'Main':'मुख्य', 'Members':'सदस्य', 'My Profile':'मेरी प्रोफ़ाइल', 'My Bills':'मेरे बिल',
+    'My Complaints':'मेरी शिकायतें', 'Finances':'वित्त', 'Management':'प्रबंधन',
+    'Complaints':'शिकायतें', 'Maintenance Bills':'मेंटेनेंस बिल', 'Facilities':'सुविधाएँ',
+    'Change Password':'पासवर्ड बदलें', '🔒 Change Password':'🔒 पासवर्ड बदलें',
+    'Current password':'वर्तमान पासवर्ड', 'New password (min. 8 characters)':'नया पासवर्ड (कम से कम 8 अक्षर)',
+    'Update Password':'पासवर्ड अपडेट करें', 'Updating…':'अपडेट हो रहा है…',
+    'Password updated. Use it next time you log in.':'पासवर्ड अपडेट हो गया। अगली बार लॉगिन करते समय इसका उपयोग करें।',
+    'Please fill in both fields.':'कृपया दोनों फ़ील्ड भरें।',
+
+    // ── Common buttons / words ──
+    'Cancel':'रद्द करें', 'Save':'सहेजें', 'Save Changes':'बदलाव सहेजें', 'Clear':'साफ़ करें',
+    'Close':'बंद करें', 'Apply':'लागू करें', 'Done':'हो गया', 'Actions':'कार्रवाई',
+    'Status':'स्थिति', 'Loading...':'लोड हो रहा है...', 'Loading…':'लोड हो रहा है…',
+    'Saving...':'सहेजा जा रहा है...', 'Saving…':'सहेजा जा रहा है…',
+    'Submitting...':'सबमिट हो रहा है...', 'Submitting…':'सबमिट हो रहा है…',
+    'Exporting...':'एक्सपोर्ट हो रहा है...', 'Adding…':'जोड़ा जा रहा है…',
+    '⬇ Export CSV':'⬇ CSV एक्सपोर्ट करें', 'Export failed: ':'एक्सपोर्ट विफल: ',
+    'Please fill in all required fields.':'कृपया सभी आवश्यक फ़ील्ड भरें।',
+    'Please fill all required fields.':'कृपया सभी आवश्यक फ़ील्ड भरें।',
+    'Please fill in all required fields (marked *).':'कृपया सभी आवश्यक फ़ील्ड भरें (* से चिह्नित)।',
+    'Please fill in all required fields (marked with *).':'कृपया सभी आवश्यक फ़ील्ड भरें (* से चिह्नित)।',
+
+    // ── Members page ──
+    'Society Members':'सोसायटी सदस्य', 'Manage and view all resident records':'सभी निवासी रिकॉर्ड प्रबंधित करें और देखें',
+    '📤 Import from Excel':'📤 एक्सेल से इंपोर्ट करें', '+ Add New Member':'+ नया सदस्य जोड़ें',
+    'Total Members':'कुल सदस्य', '2 BHK Units':'2 बीएचके इकाइयाँ', '3 BHK Units':'3 बीएचके इकाइयाँ',
+    'Row Houses':'रो हाउस', 'Inactive / Moved Out':'निष्क्रिय / स्थानांतरित',
+    'All':'सभी', '2 BHK (Regal / A-1 / A-2)':'2 बीएचके (रीगल / A-1 / A-2)',
+    '3 BHK (Kingston)':'3 बीएचके (किंग्स्टन)', 'Row House (Antillia / Empress / Royale)':'रो हाउस (एंटीलिया / एम्प्रेस / रोयाल)',
+    'Member':'सदस्य', 'Unit Type':'इकाई प्रकार', 'House No.':'मकान नंबर', 'Contact':'संपर्क',
+    '← Back to Members':'← सदस्यों पर वापस', 'Member Name':'सदस्य का नाम',
+    '2 BHK':'2 बीएचके', '3 BHK':'3 बीएचके', 'Row House':'रो हाउस',
+    'Add New Member':'नया सदस्य जोड़ें', 'Edit Member Profile':'सदस्य प्रोफ़ाइल संपादित करें',
+    'Owner / Resident Photo':'मालिक / निवासी फ़ोटो', 'Click to upload photo':'फ़ोटो अपलोड करने के लिए क्लिक करें',
+    'JPG, PNG, WEBP · Max 2 MB':'JPG, PNG, WEBP · अधिकतम 2 MB',
+    'Full Name *':'पूरा नाम *', 'Unit Type *':'इकाई प्रकार *', 'Select type':'प्रकार चुनें',
+    'Phone Number *':'फ़ोन नंबर *', 'Email':'ईमेल', 'Vehicle Registration No.':'वाहन पंजीकरण नंबर',
+    'Emergency Contact Name':'आपातकालीन संपर्क नाम', 'Emergency Contact Phone':'आपातकालीन संपर्क फ़ोन',
+    'Add Member':'सदस्य जोड़ें',
+    'Please fill in all required fields (Name, House No., Unit Type, Phone).':'कृपया सभी आवश्यक फ़ील्ड भरें (नाम, मकान नंबर, इकाई प्रकार, फ़ोन)।',
+    'Could not save member.':'सदस्य सहेजा नहीं जा सका।',
+    'Permanently delete this member? This cannot be undone.':'इस सदस्य को स्थायी रूप से हटाएँ? इसे पूर्ववत नहीं किया जा सकता।',
+    'Reactivate this member?':'इस सदस्य को पुनः सक्रिय करें?',
+    '✅ Reactivate':'✅ पुनः सक्रिय करें', '🚫 Mark Inactive':'🚫 निष्क्रिय चिह्नित करें',
+    'Active':'सक्रिय', 'Inactive':'निष्क्रिय',
+
+    // ── Excel import (member) ──
+    'Import Members from Excel':'एक्सेल से सदस्य इंपोर्ट करें',
+    'Required columns:':'आवश्यक कॉलम:', 'Optional columns:':'वैकल्पिक कॉलम:',
+    'Unit type auto-detection:':'इकाई प्रकार स्वतः पहचान:',
+    'rows. Review below, then confirm to import into the live database.':'पंक्तियाँ। नीचे समीक्षा करें, फिर लाइव डेटाबेस में इंपोर्ट की पुष्टि करें।',
+    'Found':'मिलीं', 'Sheet':'शीट', 'Type':'प्रकार', 'Phone':'फ़ोन',
+    'Confirm & Import':'पुष्टि करें और इंपोर्ट करें',
+
+    // ── Finances ──
+    'Record society expenses and view financial summaries':'सोसायटी के खर्च दर्ज करें और वित्तीय सारांश देखें',
+    '⬆ Import Expenses (XLSX)':'⬆ खर्च इंपोर्ट करें (XLSX)', 'Import Expenses from Excel':'एक्सेल से खर्च इंपोर्ट करें',
+    'Click to select .xlsx file':'.xlsx फ़ाइल चुनने के लिए क्लिक करें',
+    'Expenses will be previewed before import':'इंपोर्ट से पहले खर्चों का पूर्वावलोकन दिखेगा',
+    'Total Maintenance Collected':'कुल मेंटेनेंस संग्रह', 'All maintenance payments received':'प्राप्त सभी मेंटेनेंस भुगतान',
+    'Expenses — This Month':'खर्च — इस माह', 'Expenses — This Year':'खर्च — इस वर्ष',
+    'Net Surplus / Deficit':'शुद्ध अधिशेष / घाटा', 'Collected minus FY expenses':'संग्रह घटा वित्तीय वर्ष के खर्च',
+    'Record New Expense':'नया खर्च दर्ज करें', 'Date *':'तारीख *', 'Category *':'श्रेणी *',
+    'Select category':'श्रेणी चुनें', 'Enter new category name:':'नई श्रेणी का नाम दर्ज करें:',
+    'Lift Maintenance':'लिफ्ट मेंटेनेंस', 'Labour Salary':'श्रमिक वेतन', 'Security Salary':'सुरक्षा वेतन',
+    'Housekeeping Salary':'हाउसकीपिंग वेतन', 'Electricity':'बिजली', 'Water':'पानी',
+    'Generator Maintenance':'जनरेटर मेंटेनेंस', 'Plumbing Repairs':'प्लंबिंग मरम्मत',
+    'Electrical Repairs':'विद्युत मरम्मत', 'Pest Control':'कीट नियंत्रण', 'Garden / Landscaping':'उद्यान / भूदृश्य',
+    'CCTV / Security System':'सीसीटीवी / सुरक्षा प्रणाली', 'Painting':'पेंटिंग', 'Stationery':'स्टेशनरी',
+    'Bank Charges':'बैंक शुल्क', 'Audit Fees':'ऑडिट शुल्क', 'Festival / Events':'त्योहार / आयोजन', 'Others':'अन्य',
+    'Description *':'विवरण *', 'Payee Name *':'भुगतानकर्ता नाम *', 'GST Number':'जीएसटी नंबर',
+    '(optional)':'(वैकल्पिक)', 'Amount (₹) *':'राशि (₹) *', 'GST Amount (₹)':'जीएसटी राशि (₹)',
+    'Bill Number':'बिल नंबर', 'Payment Method *':'भुगतान विधि *', 'Select method':'विधि चुनें',
+    'Cash':'नकद', 'Cheque':'चेक', 'UPI':'यूपीआई', 'NEFT':'एनईएफटी', 'RTGS':'आरटीजीएस',
+    'Demand Draft':'डिमांड ड्राफ्ट', 'Online':'ऑनलाइन',
+    'Save Expense':'खर्च सहेजें', 'Edit Expense':'खर्च संपादित करें', 'Expense Records':'खर्च रिकॉर्ड',
+    'Could not save expense. Please try again.':'खर्च सहेजा नहीं जा सका। कृपया पुनः प्रयास करें।',
+    'Could not update expense.':'खर्च अपडेट नहीं हो सका।',
+    'Could not find expense data. Please reload the page.':'खर्च डेटा नहीं मिला। कृपया पृष्ठ पुनः लोड करें।',
+    'Loading expenses...':'खर्च लोड हो रहे हैं...',
+    'All Months':'सभी माह', 'All Categories':'सभी श्रेणियाँ',
+    'Voucher No.':'वाउचर नंबर', 'Date':'तारीख', 'Category':'श्रेणी', 'Description':'विवरण',
+    'Payee':'भुगतानकर्ता', 'Amount':'राशि', 'Mode':'माध्यम', 'Payee / Vendor':'भुगतानकर्ता / विक्रेता',
+    'Amount (₹)':'राशि (₹)',
+
+    // ── Months ──
+    'January':'जनवरी','February':'फ़रवरी','March':'मार्च','April':'अप्रैल','May':'मई','June':'जून',
+    'July':'जुलाई','August':'अगस्त','September':'सितंबर','October':'अक्टूबर','November':'नवंबर','December':'दिसंबर',
+    'Jan':'जन','Feb':'फ़र','Mar':'मार्च','Apr':'अप्रैल','Jun':'जून','Jul':'जुल','Aug':'अग','Sep':'सित','Oct':'अक्ट','Nov':'नव','Dec':'दिस',
+
+    // ── Notices ──
+    'Official announcements and circulars for residents':'निवासियों के लिए आधिकारिक घोषणाएँ और परिपत्र',
+    '+ Post Notice':'+ सूचना पोस्ट करें', 'Post Notice':'सूचना पोस्ट करें', 'Post New Notice':'नई सूचना पोस्ट करें',
+    'Posting…':'पोस्ट हो रहा है…', 'Edit Notice':'सूचना संपादित करें',
+    'General':'सामान्य', 'Maintenance':'मेंटेनेंस', 'Events':'आयोजन', 'Emergency':'आपातकाल',
+    'Finance':'वित्त', 'Legal':'कानूनी',
+    'Notice Title *':'सूचना शीर्षक *', 'Notice Body *':'सूचना विवरण *', 'Visible To':'किसे दिखे',
+    'All Residents':'सभी निवासी', 'Committee/Admin Only':'केवल समिति/एडमिन',
+    'Valid Until (optional)':'इस तिथि तक मान्य (वैकल्पिक)', '📌 Pin this notice to the top':'📌 इस सूचना को ऊपर पिन करें',
+    'Normal':'सामान्य', 'Urgent':'अत्यावश्यक',
+    'Please fill in the required fields (Title, Body).':'कृपया आवश्यक फ़ील्ड भरें (शीर्षक, विवरण)।',
+    'Please fill in the Title and Body.':'कृपया शीर्षक और विवरण भरें।',
+    'Could not save notice.':'सूचना सहेजी नहीं जा सकी।', 'Delete this notice?':'इस सूचना को हटाएँ?',
+    'Could not delete notice: ':'सूचना हटाई नहीं जा सकी: ',
+
+    // ── Complaints ──
+    'Log and track resident complaints to resolution':'निवासी शिकायतें दर्ज करें और समाधान तक ट्रैक करें',
+    '+ Log Complaint':'+ शिकायत दर्ज करें', 'Log New Complaint':'नई शिकायत दर्ज करें',
+    'Log Complaint':'शिकायत दर्ज करें',
+    'Open':'खुली', 'Acknowledged':'स्वीकृत', 'In Progress':'प्रगति में', 'Resolved':'हल हो गई',
+    'Closed':'बंद', 'Rejected':'अस्वीकृत',
+    'Track and raise maintenance or service complaints':'मेंटेनेंस या सेवा शिकायतें दर्ज करें और ट्रैक करें',
+    '+ Raise Complaint':'+ शिकायत दर्ज करें', 'New Complaint':'नई शिकायत',
+    'Plumbing':'प्लंबिंग', 'Electrical':'विद्युत', 'Lift / Elevator':'लिफ्ट / एलिवेटर',
+    'Common Area':'सामान्य क्षेत्र', 'Security':'सुरक्षा', 'Noise / Nuisance':'शोर / उपद्रव',
+    'Noise / Disturbance':'शोर / बाधा', 'Parking':'पार्किंग',
+    'Subject *':'विषय *', 'Subject / Title *':'विषय / शीर्षक *', 'Priority':'प्राथमिकता',
+    'Low':'कम', 'Medium':'मध्यम', 'High':'उच्च', 'Critical':'अत्यधिक गंभीर',
+    'Details *':'विवरण *', 'Detailed Description *':'विस्तृत विवरण *', 'Submit Complaint':'शिकायत सबमिट करें',
+    "House Number (logging on a resident's behalf)":'मकान नंबर (निवासी की ओर से दर्ज)',
+    'Please fill in category, subject, and details.':'कृपया श्रेणी, विषय और विवरण भरें।',
+    'Could not submit complaint. Please try again.':'शिकायत सबमिट नहीं हो सकी। कृपया पुनः प्रयास करें।',
+    'How was this resolved? (shown to the resident)':'यह कैसे हल हुआ? (निवासी को दिखाया जाएगा)',
+    'Could not update status: ':'स्थिति अपडेट नहीं हो सकी: ',
+    'Rate this repair from 1 (poor) to 5 (excellent):':'इस मरम्मत को 1 (खराब) से 5 (उत्कृष्ट) तक रेट करें:',
+    'Please enter a number from 1 to 5.':'कृपया 1 से 5 तक कोई संख्या दर्ज करें।',
+    'Any additional feedback? (optional — press OK to skip)':'कोई अतिरिक्त प्रतिक्रिया? (वैकल्पिक — छोड़ने के लिए OK दबाएँ)',
+    'Any additional feedback? (optional)':'कोई अतिरिक्त प्रतिक्रिया? (वैकल्पिक)',
+    'Could not submit rating: ':'रेटिंग सबमिट नहीं हो सकी: ',
+
+    // ── Maintenance Payments (ledger) ──
+    'Maintenance Payments':'मेंटेनेंस भुगतान',
+    'Record of maintenance payments received, month by month':'माह-दर-माह प्राप्त मेंटेनेंस भुगतानों का रिकॉर्ड',
+    '+ Add Payment':'+ भुगतान जोड़ें', 'Add Payment':'भुगतान जोड़ें', 'Edit Payment':'भुगतान संपादित करें',
+    'Monthly Collections':'मासिक संग्रह', 'Import Payments from Excel':'एक्सेल से भुगतान इंपोर्ट करें',
+    'Expected columns:':'अपेक्षित कॉलम:', 'Name':'नाम', 'House No':'मकान नंबर',
+    'Bill Book':'बिल बुक', 'Receipt No.':'रसीद नंबर', 'Bill Book No.':'बिल बुक नंबर',
+    'Payer Name *':'भुगतानकर्ता नाम *', 'Amount (Rs.) *':'राशि (₹) *', 'Reading file...':'फ़ाइल पढ़ी जा रही है...',
+    'Date, payer name, and amount are required.':'तारीख, भुगतानकर्ता नाम और राशि आवश्यक हैं।',
+    'Could not save.':'सहेजा नहीं जा सका।', 'Could not find entry. Reload the page.':'प्रविष्टि नहीं मिली। पृष्ठ पुनः लोड करें।',
+    'Delete this payment entry? This cannot be undone.':'इस भुगतान प्रविष्टि को हटाएँ? इसे पूर्ववत नहीं किया जा सकता।',
+    'Could not delete: ':'हटाया नहीं जा सका: ', 'No data rows found across all sheets.':'किसी भी शीट में डेटा पंक्तियाँ नहीं मिलीं।',
+
+    // ── Pay UPI ──
+    'Pay Maintenance':'मेंटेनेंस भुगतान करें', '← Back':'← वापस', 'UPI ID':'यूपीआई आईडी',
+    'Payment History':'भुगतान इतिहास', 'Maintenance Payment Receipt':'मेंटेनेंस भुगतान रसीद',
+    'Payment not found.':'भुगतान नहीं मिला।',
+
+    // ── Generate bills / record payment modals ──
+    'Generate Monthly Bills':'मासिक बिल जनरेट करें', 'Billing Month *':'बिलिंग माह *',
+    'Financial Year *':'वित्तीय वर्ष *', 'Generate':'जनरेट करें', 'Generating…':'जनरेट हो रहा है…',
+    'Please choose a billing month.':'कृपया बिलिंग माह चुनें।', 'Could not generate bills.':'बिल जनरेट नहीं हो सके।',
+    'Record Payment':'भुगतान दर्ज करें', 'Amount Paid (₹) *':'भुगतान की गई राशि (₹) *',
+    'Payment Date':'भुगतान तारीख', 'Payment Mode *':'भुगतान माध्यम *',
+    'Bank Transfer — NEFT':'बैंक ट्रांसफर — एनईएफटी', 'Bank Transfer — IMPS':'बैंक ट्रांसफर — आईएमपीएस',
+    'Bank Transfer — RTGS':'बैंक ट्रांसफर — आरटीजीएस', 'Bill No. (manual receipt number)':'बिल नंबर (मैनुअल रसीद नंबर)',
+    'Cheque Number *':'चेक नंबर *', 'Cheque Date *':'चेक तारीख *', 'Bank Name':'बैंक का नाम',
+    'UPI Transaction ID *':'यूपीआई ट्रांज़ैक्शन आईडी *', 'UPI App':'यूपीआई ऐप',
+    'Bank Reference No. (UTR) *':'बैंक संदर्भ नंबर (UTR) *', 'DD Number':'डीडी नंबर', 'DD Date':'डीडी तारीख',
+    'DD Bank Name':'डीडी बैंक का नाम', 'Remarks':'टिप्पणी',
+    'Please enter a valid amount.':'कृपया एक मान्य राशि दर्ज करें।', 'Could not record payment.':'भुगतान दर्ज नहीं हो सका।',
+    'Edit Bill':'बिल संपादित करें', 'Total Amount Due (₹) *':'कुल देय राशि (₹) *',
+    'Amount Paid (₹)':'भुगतान की गई राशि (₹)', 'Waived':'माफ़', 'Total Due (₹)':'कुल देय (₹)',
+    'Balance Due (₹)':'शेष देय (₹)', 'Please enter a valid amount due.':'कृपया एक मान्य देय राशि दर्ज करें।',
+    'Could not update bill.':'बिल अपडेट नहीं हो सका।',
+
+    // ── Facilities ──
+    'Manage common areas, memberships and bookings':'सामान्य क्षेत्र, सदस्यता और बुकिंग प्रबंधित करें',
+    'Overview':'अवलोकन', 'Gym & Membership':'जिम और सदस्यता', 'The Gymnasium':'जिम',
+    'Located on the ground floor of the Club House':'क्लब हाउस के भूतल पर स्थित',
+    'Hours':'समय', 'Area':'क्षेत्रफल', 'Equipment':'उपकरण', 'Trainers':'प्रशिक्षक',
+    'Classes':'कक्षाएँ', 'Max Capacity':'अधिकतम क्षमता', 'View Membership Plans →':'सदस्यता योजनाएँ देखें →',
+    'The Community Hall':'सामुदायिक हॉल', 'Capacity':'क्षमता', 'Bookable Hours':'बुकिंग योग्य समय',
+    'Notice Required':'आवश्यक सूचना', 'Catering Kitchen':'कैटरिंग रसोई', 'Included':'शामिल',
+    'Book the Hall →':'हॉल बुक करें →', 'Other Club House Amenities':'अन्य क्लब हाउस सुविधाएँ',
+    'Available to all members — no prior booking required':'सभी सदस्यों के लिए उपलब्ध — पूर्व बुकिंग आवश्यक नहीं',
+    'Library & Reading Room':'पुस्तकालय और वाचनालय',
+    'Quiet space with 500+ books, newspapers, and magazines. Open 8 AM – 9 PM daily.':'500+ पुस्तकों, समाचार पत्रों और पत्रिकाओं के साथ शांत स्थान। प्रतिदिन सुबह 8 – रात 9 बजे तक खुला।',
+    'Indoor Games Room':'इनडोर गेम्स रूम',
+    'Billiards, carrom, table tennis, and chess — for residents of all age groups.':'बिलियर्ड्स, कैरम, टेबल टेनिस और शतरंज — सभी आयु वर्ग के निवासियों के लिए।',
+    'Kids Play Zone':'बच्चों का खेल क्षेत्र',
+    'Supervised indoor play area for children under 12. Foam flooring and safety equipment.':'12 वर्ष से कम उम्र के बच्चों के लिए निगरानी वाला इनडोर खेल क्षेत्र। फोम फ़्लोरिंग और सुरक्षा उपकरण।',
+    'Café Lounge':'कैफ़े लाउंज',
+    'Gym Membership Plans':'जिम सदस्यता योजनाएँ', 'Monthly':'मासिक', 'per month':'प्रति माह',
+    'Full gym access':'पूर्ण जिम पहुँच', '2 group classes/week':'2 समूह कक्षाएँ/सप्ताह', 'Locker usage':'लॉकर उपयोग',
+    'Quarterly':'त्रैमासिक', 'per 3 months · save ₹300':'प्रति 3 माह · ₹300 बचाएँ',
+    '4 group classes/week':'4 समूह कक्षाएँ/सप्ताह', '1 free PT session':'1 निःशुल्क पीटी सत्र',
+    'Annual':'वार्षिक', 'per year · save ₹2,100':'प्रति वर्ष · ₹2,100 बचाएँ',
+    'Unlimited group classes':'असीमित समूह कक्षाएँ', 'Dedicated locker':'समर्पित लॉकर',
+    '4 free PT sessions':'4 निःशुल्क पीटी सत्र', 'Guest pass (2/month)':'अतिथि पास (2/माह)',
+    'Family':'परिवार', 'per year · up to 4 members':'प्रति वर्ष · 4 सदस्यों तक',
+    'Full gym access all':'सभी के लिए पूर्ण जिम पहुँच', '6 free PT sessions':'6 निःशुल्क पीटी सत्र',
+    'Kids yoga included':'बच्चों का योग शामिल', 'Enrol for Membership':'सदस्यता के लिए नामांकन करें',
+    'Resident Name *':'निवासी नाम *', 'House Number *':'मकान नंबर *', 'Phone *':'फ़ोन *', 'Plan *':'योजना *',
+    'Select plan':'योजना चुनें', 'Monthly — ₹800':'मासिक — ₹800', 'Quarterly — ₹2,100':'त्रैमासिक — ₹2,100',
+    'Annual — ₹7,500':'वार्षिक — ₹7,500', 'Family Annual — ₹12,000':'पारिवारिक वार्षिक — ₹12,000',
+    'Start Date *':'आरंभ तिथि *', 'Preferred Slot':'पसंदीदा समय', 'Any time':'किसी भी समय',
+    'Early Morning (5:30–8:00 AM)':'सुबह जल्दी (5:30–8:00 AM)', 'Morning (8:00–11:00 AM)':'सुबह (8:00–11:00 AM)',
+    'Afternoon (12:00–4:00 PM)':'दोपहर (12:00–4:00 PM)', 'Evening (4:00–7:00 PM)':'शाम (4:00–7:00 PM)',
+    'Night (7:00–10:00 PM)':'रात (7:00–10:00 PM)', 'Enrol Now':'अभी नामांकन करें',
+    '✓ Membership enrolment recorded successfully!':'✓ सदस्यता नामांकन सफलतापूर्वक दर्ज हुआ!',
+    'Active Memberships':'सक्रिय सदस्यताएँ', 'House':'मकान', 'Plan':'योजना', 'Start Date':'आरंभ तिथि',
+    'Valid Till':'मान्य तिथि तक', 'No memberships enrolled yet.':'अभी तक कोई सदस्यता नामांकित नहीं।',
+    'Community Hall Booking':'सामुदायिक हॉल बुकिंग', 'New Booking Request':'नई बुकिंग अनुरोध',
+    'Event Type *':'आयोजन प्रकार *', 'Select event type':'आयोजन प्रकार चुनें', 'Birthday Party':'जन्मदिन पार्टी',
+    'Anniversary':'वर्षगाँठ', 'Pooja / Religious Ceremony':'पूजा / धार्मिक समारोह',
+    'Kitty Party / Get-together':'किटी पार्टी / मिलन समारोह', 'Society Meeting':'सोसायटी बैठक',
+    'Cultural Program':'सांस्कृतिक कार्यक्रम', 'Workshop / Seminar':'कार्यशाला / सेमिनार', 'Other':'अन्य',
+    'Event Date *':'आयोजन तिथि *', 'Expected Guests *':'अपेक्षित अतिथि *', 'Start Time *':'आरंभ समय *',
+    'Select time':'समय चुनें', 'End Time *':'समाप्ति समय *',
+    'Additional Requirements / Notes':'अतिरिक्त आवश्यकताएँ / टिप्पणियाँ',
+    '✓ Hall booking request submitted! You will be notified upon approval.':'✓ हॉल बुकिंग अनुरोध सबमिट हुआ! स्वीकृति पर आपको सूचित किया जाएगा।',
+    'Submit Booking Request':'बुकिंग अनुरोध सबमिट करें', 'Upcoming Bookings':'आगामी बुकिंग',
+    'Resident':'निवासी', 'Event':'आयोजन', 'Time':'समय', 'Guests':'अतिथि', 'No bookings yet.':'अभी तक कोई बुकिंग नहीं।',
+    'Approve':'स्वीकृत करें', 'Reject':'अस्वीकृत करें', 'Mark completed':'पूर्ण चिह्नित करें',
+    'Pending Approval':'स्वीकृति लंबित', 'Confirmed':'पुष्ट', 'Completed':'पूर्ण', 'Cancelled':'रद्द',
+    'Enter reason for rejection (required):':'अस्वीकृति का कारण दर्ज करें (आवश्यक):',
+    'Are you sure you want to cancel this booking?':'क्या आप वाकई यह बुकिंग रद्द करना चाहते हैं?',
+    'Could not load bookings.':'बुकिंग लोड नहीं हो सकीं।', 'Could not update booking status.':'बुकिंग स्थिति अपडेट नहीं हो सकी।',
+    'Could not submit booking. Please try again.':'बुकिंग सबमिट नहीं हो सकी। कृपया पुनः प्रयास करें।',
+
+    // ── Resident home ──
+    'Welcome':'स्वागत है', 'Good morning':'सुप्रभात', 'Good afternoon':'नमस्कार', 'Good evening':'शुभ संध्या',
+    'Outstanding Balance':'बकाया राशि', 'Click to view bills':'बिल देखने के लिए क्लिक करें',
+    'Open Complaints':'खुली शिकायतें', 'Click to view':'देखने के लिए क्लिक करें',
+    '✏️ Edit Details':'✏️ विवरण संपादित करें', 'Recent Bills':'हाल के बिल',
+    'My Maintenance Bills':'मेरे मेंटेनेंस बिल', 'Your payment history and outstanding dues':'आपका भुगतान इतिहास और बकाया राशि',
+    'Total Outstanding':'कुल बकाया', 'Unpaid':'अवैतनिक', 'Partial':'आंशिक', 'Paid':'भुगतान किया',
+    'Edit My Details':'मेरे विवरण संपादित करें', 'House Number':'मकान नंबर',
+    'House number and unit type can only be changed by the admin.':'मकान नंबर और इकाई प्रकार केवल एडमिन द्वारा बदले जा सकते हैं।',
+    'Primary Phone *':'प्राथमिक फ़ोन *', 'Alternate Phone':'वैकल्पिक फ़ोन', 'Email Address':'ईमेल पता',
+    'Vehicle 1 Registration':'वाहन 1 पंजीकरण', 'Vehicle 2 Registration':'वाहन 2 पंजीकरण',
+    'Primary phone number is required.':'प्राथमिक फ़ोन नंबर आवश्यक है।',
+    'Your details have been updated successfully.':'आपके विवरण सफलतापूर्वक अपडेट हो गए।',
+    'Could not load your profile data. Please try again.':'आपका प्रोफ़ाइल डेटा लोड नहीं हो सका। कृपया पुनः प्रयास करें।',
+    'Could not save changes. Please try again.':'बदलाव सहेजे नहीं जा सके। कृपया पुनः प्रयास करें।',
+
+    // ── Roles / misc labels ──
+    'Administrator':'प्रशासक', 'President':'अध्यक्ष', 'Secretary':'सचिव', 'Treasurer':'कोषाध्यक्ष',
+    'Manager':'प्रबंधक', 'Committee Member':'समिति सदस्य', 'Committee':'समिति', 'Admin':'एडमिन',
+    'Surplus':'अधिशेष', 'Deficit':'घाटा', 'Today':'आज',
+    'Billing Month':'बिलिंग माह', 'Financial Year':'वित्तीय वर्ष', 'Payment Mode':'भुगतान माध्यम',
+
+    // ── Quarters ──
+    'Q1 (Apr–Jun)':'ति1 (अप्रैल–जून)', 'Q2 (Jul–Sep)':'ति2 (जुलाई–सित)',
+    'Q3 (Oct–Dec)':'ति3 (अक्ट–दिस)', 'Q4 (Jan–Mar)':'ति4 (जन–मार्च)'
+  };
+
+  const HINDI_FONT = "'Nirmala UI','Kohinoor Devanagari','Noto Sans Devanagari','Mangal',sans-serif";
+  const SKIP_TAGS = new Set(['SCRIPT','STYLE','CODE','PRE','TEXTAREA','INPUT','SELECT','OPTION']);
+  // OPTION is skipped by walker but handled separately below (their text needs translating too)
+
+  let lang = localStorage.getItem('kgc_lang') || 'en';
+
+  function translateTextNodes(root) {
+    if (lang !== 'hi') return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        let p = node.parentNode;
+        while (p && p !== root.parentNode) {
+          if (p.nodeType === 1 && (SKIP_TAGS.has(p.tagName) || p.classList.contains('no-translate')))
+            return NodeFilter.FILTER_REJECT;
+          p = p.parentNode;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n => {
+      if (n.__en !== undefined) return; // already translated
+      const key = n.nodeValue.trim();
+      if (DICT[key]) {
+        n.__en = n.nodeValue;
+        n.nodeValue = n.nodeValue.replace(key, DICT[key]);
+      }
+    });
+  }
+
+  // <option> elements and placeholders handled explicitly
+  function translateAttributes(root) {
+    if (lang !== 'hi') return;
+    root.querySelectorAll('option').forEach(o => {
+      if (o.__en === undefined && DICT[o.textContent.trim()]) {
+        o.__en = o.textContent;
+        o.textContent = DICT[o.textContent.trim()];
+      }
+    });
+    root.querySelectorAll('[placeholder]').forEach(el => {
+      const key = el.getAttribute('placeholder').trim();
+      if (el.__enPh === undefined && DICT[key]) {
+        el.__enPh = el.getAttribute('placeholder');
+        el.setAttribute('placeholder', DICT[key]);
+      }
+    });
+  }
+
+  function restoreAll(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(n => {
+      if (n.__en !== undefined) { n.nodeValue = n.__en; delete n.__en; }
+    });
+    root.querySelectorAll('option').forEach(o => {
+      if (o.__en !== undefined) { o.textContent = o.__en; delete o.__en; }
+    });
+    root.querySelectorAll('[placeholder]').forEach(el => {
+      if (el.__enPh !== undefined) { el.setAttribute('placeholder', el.__enPh); delete el.__enPh; }
+    });
+  }
+
+  function applyLanguage() {
+    const btn = document.getElementById('lang-toggle');
+    if (lang === 'hi') {
+      document.body.classList.add('lang-hi');
+      document.documentElement.lang = 'hi';
+      translateTextNodes(document.body);
+      translateAttributes(document.body);
+      if (btn) btn.textContent = 'English';
+    } else {
+      document.body.classList.remove('lang-hi');
+      document.documentElement.lang = 'en';
+      restoreAll(document.body);
+      if (btn) btn.textContent = 'हिंदी';
+    }
+  }
+
+  window.toggleLanguage = function () {
+    lang = (lang === 'hi') ? 'en' : 'hi';
+    localStorage.setItem('kgc_lang', lang);
+    applyLanguage();
+  };
+
+  // Observe dynamically added content and translate it when in Hindi
+  const observer = new MutationObserver(muts => {
+    if (lang !== 'hi') return;
+    muts.forEach(m => {
+      m.addedNodes.forEach(node => {
+        if (node.nodeType === 1) {         // element
+          translateTextNodes(node);
+          translateAttributes(node);
+        } else if (node.nodeType === 3) {  // text
+          const key = node.nodeValue && node.nodeValue.trim();
+          if (key && DICT[key] && node.__en === undefined) {
+            node.__en = node.nodeValue;
+            node.nodeValue = node.nodeValue.replace(key, DICT[key]);
+          }
+        }
+      });
+    });
+  });
+
+  // Translate exact-match alert/confirm messages too
+  const _alert = window.alert.bind(window);
+  window.alert = function (msg) {
+    if (lang === 'hi' && DICT[msg]) return _alert(DICT[msg]);
+    return _alert(msg);
+  };
+  const _confirm = window.confirm.bind(window);
+  window.confirm = function (msg) {
+    if (lang === 'hi' && DICT[msg]) return _confirm(DICT[msg]);
+    return _confirm(msg);
+  };
+
+  function start() {
+    applyLanguage();
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
+})();
+</script>
+
 </body>
 </html>
