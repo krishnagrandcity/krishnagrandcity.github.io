@@ -6350,6 +6350,9 @@ function handleFinanceFile(input) {
     'Electrical Repairs':'विद्युत मरम्मत', 'Pest Control':'कीट नियंत्रण', 'Garden / Landscaping':'उद्यान / भूदृश्य',
     'CCTV / Security System':'सीसीटीवी / सुरक्षा प्रणाली', 'Painting':'पेंटिंग', 'Stationery':'स्टेशनरी',
     'Bank Charges':'बैंक शुल्क', 'Audit Fees':'ऑडिट शुल्क', 'Festival / Events':'त्योहार / आयोजन', 'Others':'अन्य',
+    'Houskeeping Item':'हाउसकीपिंग सामग्री', 'Housekeeping Item':'हाउसकीपिंग सामग्री',
+    'Transport':'परिवहन', 'Waste Disposal':'कचरा निपटान', 'NOC charges':'एनओसी शुल्क',
+    'Repairs':'मरम्मत', 'Miscellaneous':'विविध', 'Legal Fees':'कानूनी शुल्क', 'Insurance':'बीमा',
     'Description *':'विवरण *', 'Payee Name *':'भुगतानकर्ता नाम *', 'GST Number':'जीएसटी नंबर',
     '(optional)':'(वैकल्पिक)', 'Amount (₹) *':'राशि (₹) *', 'GST Amount (₹)':'जीएसटी राशि (₹)',
     'Bill Number':'बिल नंबर', 'Payment Method *':'भुगतान विधि *', 'Select method':'विधि चुनें',
@@ -6561,21 +6564,31 @@ function handleFinanceFile(input) {
   }
 
   // <option> elements and placeholders handled explicitly
+  function translateOption(o) {
+    if (o.__en === undefined && DICT[o.textContent.trim()]) {
+      o.__en = o.textContent;
+      o.textContent = DICT[o.textContent.trim()];
+    }
+  }
+  function translatePlaceholder(el) {
+    const ph = el.getAttribute && el.getAttribute('placeholder');
+    if (!ph) return;
+    const key = ph.trim();
+    if (el.__enPh === undefined && DICT[key]) {
+      el.__enPh = ph;
+      el.setAttribute('placeholder', DICT[key]);
+    }
+  }
   function translateAttributes(root) {
-    if (lang !== 'hi') return;
-    root.querySelectorAll('option').forEach(o => {
-      if (o.__en === undefined && DICT[o.textContent.trim()]) {
-        o.__en = o.textContent;
-        o.textContent = DICT[o.textContent.trim()];
-      }
-    });
-    root.querySelectorAll('[placeholder]').forEach(el => {
-      const key = el.getAttribute('placeholder').trim();
-      if (el.__enPh === undefined && DICT[key]) {
-        el.__enPh = el.getAttribute('placeholder');
-        el.setAttribute('placeholder', DICT[key]);
-      }
-    });
+    if (lang !== 'hi' || !root || root.nodeType !== 1) return;
+    // the node itself may be an <option> or carry a placeholder
+    if (root.tagName === 'OPTION') translateOption(root);
+    if (root.hasAttribute && root.hasAttribute('placeholder')) translatePlaceholder(root);
+    // and any descendants
+    if (root.querySelectorAll) {
+      root.querySelectorAll('option').forEach(translateOption);
+      root.querySelectorAll('[placeholder]').forEach(translatePlaceholder);
+    }
   }
 
   function restoreAll(root) {
