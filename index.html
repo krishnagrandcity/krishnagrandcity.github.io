@@ -490,15 +490,55 @@ td { padding: 13px 16px; font-size: 14px; color: var(--text); }
 /* ═══════════════════════════════════════════════════
    RESPONSIVE BREAKPOINTS
    ═══════════════════════════════════════════════════ */
+/* ── Mobile burger menu ── */
+.nav-left { display: flex; align-items: center; gap: 10px; }
+.burger {
+  display: none; background: none; border: none; color: #fff;
+  font-size: 24px; line-height: 1; cursor: pointer; padding: 4px 8px;
+}
+#mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; }
+#mobile-menu {
+  position: fixed; top: 0; left: 0; width: 280px; max-width: 82vw; height: 100%;
+  background: var(--navy); z-index: 301; padding: 16px 14px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+  transform: translateX(-100%); transition: transform .25s ease;
+  box-shadow: 2px 0 20px rgba(0,0,0,0.3);
+}
+body.mobile-nav-open #mobile-menu     { transform: translateX(0); }
+body.mobile-nav-open #mobile-overlay  { display: block; }
+.mm-close { align-self: flex-end; background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; padding: 2px 8px; }
+.mm-label { font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.35); letter-spacing: 1.5px; text-transform: uppercase; padding: 14px 10px 4px; }
+.mm-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: none; border: none; color: rgba(255,255,255,0.82);
+  font-family: 'DM Sans', sans-serif; font-size: 15px; padding: 12px 12px;
+  border-radius: 8px; cursor: pointer;
+}
+.mm-btn:hover, .mm-btn.active { background: rgba(255,255,255,0.1); color: #fff; }
+.mm-btn.gold { color: var(--gold); font-weight: 600; }
+/* Keep the drawer off the screen entirely on desktop */
+@media (min-width: 769px) { #mobile-menu, #mobile-overlay, .burger { display: none !important; } }
+
 @media (max-width: 768px) {
   .about-inner  { grid-template-columns: 1fr; }
   .detail-grid  { grid-template-columns: 1fr; }
-  .sidebar      { display: none; }
+  .sidebar      { display: none; }       /* replaced by the burger drawer */
+  .burger       { display: block; }
+  .nav-links    { display: none; }       /* folded into the drawer */
   .form-row     { grid-template-columns: 1fr; }
   .stat-item    { padding: 20px 24px; }
   nav           { padding: 0 1rem; }
   .nav-brand    { font-size: 15px; }
   .monthly-grid { grid-template-columns: repeat(2, 1fr); }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .dash-main    { padding: 20px 16px; }
+  .page-header  { flex-direction: column; align-items: stretch; }
+  .modal-box    { padding: 22px 18px; max-height: 92vh; }
+  .filter-tabs  { width: 100%; overflow-x: auto; }
+  .feature-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 440px) {
+  .metrics-grid { grid-template-columns: 1fr; }
 }
 /* ── Bilingual support ── */
 body.lang-hi,
@@ -524,6 +564,8 @@ body.lang-hi .metric-val, body.lang-hi .stat-num {
      Visible on all pages; login/logout toggle handled by JS
      ═══════════════════════════════════════════════ -->
 <nav>
+  <div class="nav-left">
+  <button id="burger" class="burger no-translate" onclick="toggleMobileMenu()" aria-label="Open menu">&#9776;</button>
   <div class="nav-logo">
     <div class="nav-logo-mark">
       <!-- Society home icon -->
@@ -534,6 +576,7 @@ body.lang-hi .metric-val, body.lang-hi .stat-num {
     </div>
     <span class="nav-brand">Krishna<span> Grand</span> City</span>
   </div>
+  </div><!-- /nav-left -->
   <div class="nav-links">
     <button class="nav-btn active" onclick="showPage('home')">Home</button>
     <button class="nav-btn" onclick="showPage('about')">About</button>
@@ -6227,6 +6270,68 @@ function handleFinanceFile(input) {
 }
 
 </script>
+<!-- Mobile navigation drawer (populated on open) -->
+<div id="mobile-overlay" onclick="closeMobileMenu()"></div>
+<div id="mobile-menu" aria-label="Navigation menu"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   MOBILE NAVIGATION — burger drawer
+   Builds its contents from the current context each time it opens:
+   the dashboard sections the user can access (read live from the
+   sidebar, so permissions are respected) plus the site links.
+   ══════════════════════════════════════════════════════════════ */
+function buildMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  let html = '<button class="mm-close no-translate" onclick="closeMobileMenu()" aria-label="Close">&times;</button>';
+
+  const isLoggedIn = (typeof loggedIn !== 'undefined' && loggedIn);
+  const dash = document.getElementById('page-dashboard');
+  const onDash = isLoggedIn && dash && !dash.classList.contains('hidden');
+
+  // Dashboard sections — mirror the visible sidebar buttons
+  if (onDash) {
+    html += '<div class="mm-label">Menu</div>';
+    document.querySelectorAll('.sidebar .sb-btn').forEach(btn => {
+      if (btn.classList.contains('perm-hidden')) return;
+      const label   = btn.textContent.trim();
+      const onclick = (btn.getAttribute('onclick') || '').replace(/"/g, '&quot;');
+      const active  = btn.classList.contains('active') ? ' active' : '';
+      html += `<button class="mm-btn${active}" onclick="closeMobileMenu(); ${onclick}">${label}</button>`;
+    });
+    html += `<button class="mm-btn" onclick="closeMobileMenu(); openChangePasswordModal()">🔒 Change Password</button>`;
+  }
+
+  // Site links
+  html += '<div class="mm-label">Site</div>';
+  html += `<button class="mm-btn" onclick="closeMobileMenu(); showPage('home')">Home</button>`;
+  html += `<button class="mm-btn" onclick="closeMobileMenu(); showPage('about')">About</button>`;
+  if (isLoggedIn) {
+    html += `<button class="mm-btn gold" onclick="closeMobileMenu(); logout()">Logout</button>`;
+  } else {
+    html += `<button class="mm-btn gold" onclick="closeMobileMenu(); showPage('login')">Admin Login</button>`;
+  }
+
+  menu.innerHTML = html;
+}
+
+function toggleMobileMenu() {
+  if (document.body.classList.contains('mobile-nav-open')) {
+    closeMobileMenu();
+  } else {
+    buildMobileMenu();
+    document.body.classList.add('mobile-nav-open');
+  }
+}
+function closeMobileMenu() {
+  document.body.classList.remove('mobile-nav-open');
+}
+// Close the drawer automatically if the viewport grows to desktop size
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 768) closeMobileMenu();
+});
+</script>
+
 <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
 <script>
 /* ══════════════════════════════════════════════════════════════
