@@ -547,14 +547,14 @@ body.lang-hi .page-title, body.lang-hi .section-title, body.lang-hi .brand,
 body.lang-hi .metric-val, body.lang-hi .stat-num {
   font-family: 'Nirmala UI','Kohinoor Devanagari','Noto Sans Devanagari','Mangal','Segoe UI',sans-serif !important;
 }
+/* Language toggle — sits in the nav bar */
 #lang-toggle {
-  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
-  background: var(--gold, #c9a227); color: var(--navy, #0d1b3e);
-  border: none; border-radius: 24px; padding: 10px 18px;
-  font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.25); font-family: 'Nirmala UI','Noto Sans Devanagari',sans-serif;
+  background: rgba(201,168,76,0.18); color: var(--gold, #c9a227);
+  border: 1px solid rgba(201,168,76,0.4); border-radius: 6px;
+  padding: 7px 12px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: 'Nirmala UI','Noto Sans Devanagari','DM Sans',sans-serif; margin-left: 4px;
 }
-#lang-toggle:hover { filter: brightness(1.05); }
+#lang-toggle:hover { background: rgba(201,168,76,0.28); }
 </style>
 </head>
 <body>
@@ -582,6 +582,7 @@ body.lang-hi .metric-val, body.lang-hi .stat-num {
     <button class="nav-btn" onclick="showPage('about')">About</button>
     <button class="nav-btn" id="nav-login-btn" onclick="showPage('login')">Admin Login</button>
     <button class="nav-btn" id="nav-logout-btn" style="display:none" onclick="logout()">Logout</button>
+    <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
   </div>
 </nav>
 
@@ -6312,6 +6313,11 @@ function buildMobileMenu() {
     html += `<button class="mm-btn gold" onclick="closeMobileMenu(); showPage('login')">Admin Login</button>`;
   }
 
+  // Language switch
+  const curLang = localStorage.getItem('kgc_lang') || 'en';
+  html += '<div class="mm-label">Language</div>';
+  html += `<button class="mm-btn no-translate" onclick="closeMobileMenu(); toggleLanguage()">${curLang === 'hi' ? 'English' : 'हिंदी'}</button>`;
+
   menu.innerHTML = html;
 }
 
@@ -6332,7 +6338,6 @@ window.addEventListener('resize', () => {
 });
 </script>
 
-<button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
 <script>
 /* ══════════════════════════════════════════════════════════════
    BILINGUAL SUPPORT — English / Hindi (Devanagari)
