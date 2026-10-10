@@ -839,7 +839,7 @@ body.lang-hi .metric-val, body.lang-hi .stat-num {
         <!-- Unit type filter tabs -->
         <div class="filter-tabs">
           <button class="ftab active" onclick="filterMembers('all', this)">All</button>
-          <button class="ftab" onclick="filterMembers('2bhk', this)">2 BHK (Regal / A-1 / A-2)</button>
+          <button class="ftab" onclick="filterMembers('2bhk', this)">2 BHK (Regal / Sunshine)</button>
           <button class="ftab" onclick="filterMembers('3bhk', this)">3 BHK (Kingston)</button>
           <button class="ftab" onclick="filterMembers('rowhouse', this)">Row House (Antillia / Empress / Royale)</button>
         </div>
@@ -2448,8 +2448,9 @@ function handleImportFile(event) {
         // By house number prefix (primary method)
         if (/^(antilia|antillia|empress|royale)\b/i.test(hn)) return 'rowhouse';
         if (/^regal\b/i.test(hn))                             return '2bhk';
-        if (/^(a1|a-1)\b/i.test(hn))                         return '2bhk';
-        if (/^(a2|a-2)\b/i.test(hn))                         return '2bhk';
+        if (/^sunshine\b/i.test(hn))                          return '2bhk';
+        if (/^(a1|a-1)\b/i.test(hn))                         return '2bhk';  // legacy, pre-rename
+        if (/^(a2|a-2)\b/i.test(hn))                         return '2bhk';  // legacy, pre-rename
         if (/^kingston\b/i.test(hn))                          return '3bhk';
 
         // Fallback: derive from sheet name
@@ -3170,7 +3171,7 @@ function showMyProfile() {
 // Returns human-readable unit type label
 function getTypeLabel(t) {
   return {
-    '2bhk':     '2 BHK (Regal / A-1 / A-2)',
+    '2bhk':     '2 BHK (Regal / Sunshine)',
     '3bhk':     '3 BHK (Kingston)',
     'rowhouse': 'Row House (Antillia / Empress / Royale)',
   }[t] || t;
@@ -3219,13 +3220,30 @@ function renderMemberMetrics() {
    Payment/dues columns intentionally excluded — see the note under
    the table; that data belongs to the not-yet-wired Bills module.
    ════════════════════════════════════════════════════ */
+// Natural-order comparator for house numbers: sorts by the block name
+// (text prefix) first, then by the unit number as a true integer — so
+// "Sunshine - 2" comes before "Sunshine - 10", and blocks group together.
+// Used everywhere members are listed so new entries always slot into place.
+function compareHouseNumbers(a, b) {
+  const parse = s => {
+    const str = String(s || '').trim();
+    const m = str.match(/^(.*?)(\d+)\s*$/);      // split trailing number off the prefix
+    const prefix = (m ? m[1] : str).replace(/[\s\-.]+$/,'').toLowerCase().trim();
+    const num    = m ? parseInt(m[2], 10) : 0;
+    return { prefix, num };
+  };
+  const pa = parse(a), pb = parse(b);
+  if (pa.prefix !== pb.prefix) return pa.prefix.localeCompare(pb.prefix);
+  return pa.num - pb.num;
+}
+
 function renderMembersTable() {
   const filtered = members.filter(m => {
     const matchType = currentFilter === 'all' || m.type === currentFilter;
     const q = currentSearch.toLowerCase();
     const matchSearch = !q || m.name.toLowerCase().includes(q) || m.house.toLowerCase().includes(q) || m.phone.includes(q) || m.email.toLowerCase().includes(q);
     return matchType && matchSearch;
-  });
+  }).sort((a, b) => compareHouseNumbers(a.house, b.house));
   document.getElementById('member-count-lbl').textContent = filtered.length + ' of ' + members.length + ' members';
   const tbody = document.getElementById('members-tbody');
   if (filtered.length === 0) {
@@ -6417,7 +6435,8 @@ window.addEventListener('resize', () => {
     '📤 Import from Excel':'📤 एक्सेल से इंपोर्ट करें', '+ Add New Member':'+ नया सदस्य जोड़ें',
     'Total Members':'कुल सदस्य', '2 BHK Units':'2 बीएचके इकाइयाँ', '3 BHK Units':'3 बीएचके इकाइयाँ',
     'Row Houses':'रो हाउस', 'Inactive / Moved Out':'निष्क्रिय / स्थानांतरित',
-    'All':'सभी', '2 BHK (Regal / A-1 / A-2)':'2 बीएचके (रीगल / A-1 / A-2)',
+    'All':'सभी', '2 BHK (Regal / Sunshine)':'2 बीएचके (रीगल / सनशाइन)',
+    '2 BHK (Regal / A-1 / A-2)':'2 बीएचके (रीगल / A-1 / A-2)',
     '3 BHK (Kingston)':'3 बीएचके (किंग्स्टन)', 'Row House (Antillia / Empress / Royale)':'रो हाउस (एंटीलिया / एम्प्रेस / रोयाल)',
     'Member':'सदस्य', 'Unit Type':'इकाई प्रकार', 'House No.':'मकान नंबर', 'Contact':'संपर्क',
     '← Back to Members':'← सदस्यों पर वापस', 'Member Name':'सदस्य का नाम',
