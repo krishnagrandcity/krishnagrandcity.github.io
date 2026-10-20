@@ -293,6 +293,12 @@ tfoot td { padding: 14px 16px; font-size: 14px; font-weight: 600; background: va
 
 /* Role-gated elements hidden by JS */
 .perm-hidden { display: none !important; }
+/* Dues quarter toggle cells */
+.q-cell { display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-width:70px; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:12px; font-weight:600; border:1px solid transparent; user-select:none; }
+.q-paid    { background: var(--green-bg, #d7f0e0); color: var(--green, #1a8a4a); }
+.q-unpaid  { background: var(--red-bg, #fbe3e0); color: var(--red, #c0392b); }
+.q-future  { background: var(--surface2, #f1f1f4); color: var(--text2, #888); cursor: default; }
+.q-cell small { font-weight: 400; font-size: 10px; margin-top: 2px; }
 
 /* ═══════════════════════════════════════════════════
    MEMBERS TABLE
@@ -1168,6 +1174,67 @@ body.lang-hi .metric-val, body.lang-hi .stat-num {
           </div>
         </div>
 
+        <!-- ══ DUES & PENALTIES (admin/committee) ══ -->
+        <div class="info-section admin-mgr-only" style="margin-bottom:24px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div>
+              <h3 style="margin-bottom:2px;">Dues &amp; Penalties</h3>
+              <p style="font-size:12px;color:var(--text2);">₹4,000 per quarter · ₹700 penalty once a quarter ends unpaid · carries forward across years</p>
+            </div>
+            <button class="btn-sm btn-sm-outline" onclick="loadDues()" style="padding:7px 12px;">&#8635; Refresh</button>
+          </div>
+
+          <!-- Society-wide dues KPIs -->
+          <div class="metrics-grid" style="margin-bottom:16px;">
+            <div class="metric-card">
+              <div class="metric-lbl">Residents With Dues</div>
+              <div class="metric-val" id="dues-kpi-count" style="color:var(--amber);">&mdash;</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-lbl">Total Maintenance Due</div>
+              <div class="metric-val" id="dues-kpi-maint" style="color:var(--red);">&mdash;</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-lbl">Total Penalties</div>
+              <div class="metric-val" id="dues-kpi-penalty" style="color:var(--red);">&mdash;</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-lbl">Total Outstanding</div>
+              <div class="metric-val" id="dues-kpi-total" style="color:var(--red);">&mdash;</div>
+            </div>
+          </div>
+
+          <!-- FY selector + search -->
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+            <label style="font-size:13px;color:var(--text2);">Mark quarters for FY</label>
+            <select class="form-select" id="dues-fy-select" onchange="renderDuesGrid()" style="width:150px;padding:7px 10px;font-size:13px;"></select>
+            <input class="form-input" id="dues-search" oninput="renderDuesGrid()" placeholder="Search name / house…" style="flex:1;min-width:160px;padding:7px 12px;font-size:13px;" />
+          </div>
+
+          <div style="overflow-x:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>House</th>
+                  <th>Resident</th>
+                  <th style="text-align:center">Q1<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Apr–Jun</span></th>
+                  <th style="text-align:center">Q2<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Jul–Sep</span></th>
+                  <th style="text-align:center">Q3<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Oct–Dec</span></th>
+                  <th style="text-align:center">Q4<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Jan–Mar</span></th>
+                  <th style="text-align:right">Total Owed</th>
+                </tr>
+              </thead>
+              <tbody id="dues-grid-body">
+                <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text2);">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p style="font-size:11px;color:var(--text2);margin-top:8px;">
+            Tap a quarter to toggle paid (green) / unpaid (red). Grey = quarter not started yet.
+            A quarter that ends unpaid adds the ₹700 penalty automatically. "Total Owed" sums every unpaid quarter across all years.
+          </p>
+        </div>
+
         <!-- Monthly Collection Summary -->
         <div style="margin-bottom:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
@@ -1762,6 +1829,21 @@ body.lang-hi .metric-val, body.lang-hi .stat-num {
             <h2 class="page-title">My Maintenance Bills</h2>
             <p class="page-sub">Your payment history and outstanding dues</p>
           </div>
+        </div>
+
+        <!-- ══ Quarterly Dues & Penalties ══ -->
+        <div class="info-section" style="margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+            <h3 style="margin-bottom:0;">Quarterly Dues</h3>
+            <div style="text-align:right;">
+              <div style="font-size:12px;color:var(--text2);">Total Outstanding</div>
+              <div class="metric-val" id="res-dues-total" style="font-size:22px;color:var(--red);">—</div>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px;">
+            Maintenance is ₹4,000 per quarter (Apr–Jun, Jul–Sep, Oct–Dec, Jan–Mar). A quarter left unpaid after it ends adds a ₹700 penalty, and unpaid amounts carry forward.
+          </p>
+          <div id="res-dues-list" style="color:var(--text2);font-size:13px;">Loading…</div>
         </div>
         <div id="res-bills-banner" class="info-section" style="margin-bottom:20px;display:none;">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -3099,6 +3181,11 @@ function applyPermissions() {
     el.classList.toggle('perm-hidden', !(admin || manager))
   );
 
+  // ── .admin-mgr-only: dues grid etc. — admin, manager (not committee/resident) ──
+  document.querySelectorAll('.admin-mgr-only').forEach(el =>
+    el.classList.toggle('perm-hidden', !(admin || manager))
+  );
+
   // ── btn-add-member: admin + manager ──
   const addMemberBtn = document.getElementById('btn-add-member');
   if (addMemberBtn) addMemberBtn.classList.toggle('perm-hidden', !(admin || manager));
@@ -3151,7 +3238,7 @@ function showDash(view) {
   if (view === 'members')        loadMembers();
   if (view === 'notices')        loadNotices();
   if (view === 'complaints')     loadComplaints();
-  if (view === 'bills')          { initLedgerYearDropdowns(); loadLedger(); loadLedgerSummary(); }
+  if (view === 'bills')          { initLedgerYearDropdowns(); loadLedger(); loadLedgerSummary(); if (isAdmin() || isManager()) loadDues(); }
   if (view === 'facilities')     loadHallBookings();
   if (view === 'resident-home')  loadResidentHome();
   if (view === 'res-bills')      loadResBills();
@@ -4860,6 +4947,50 @@ async function loadResBills() {
   } catch (e) {
     box.innerHTML = `<div style="text-align:center;padding:48px;color:var(--red);">Could not load bills: ${e.message}</div>`;
   }
+  loadResDues(); // quarterly dues panel
+}
+
+// Resident's own quarterly dues & penalties
+async function loadResDues() {
+  const list  = document.getElementById('res-dues-list');
+  const total = document.getElementById('res-dues-total');
+  if (!list) return;
+  const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  try {
+    const d = await apiRequest('/api/dues/me');
+    total.textContent = fmt(d.totalOwed);
+    total.style.color = d.totalOwed > 0 ? 'var(--red)' : 'var(--green)';
+
+    // Group breakdown by financial year, newest first
+    const byFy = {};
+    d.breakdown.forEach(b => { (byFy[b.fyStart] = byFy[b.fyStart] || []).push(b); });
+    const fys = Object.keys(byFy).map(Number).sort((a,b) => b - a);
+
+    if (fys.length === 0) { list.innerHTML = '<span style="color:var(--green);">No dues on record.</span>'; return; }
+
+    const qNames = {1:'Q1 Apr–Jun', 2:'Q2 Jul–Sep', 3:'Q3 Oct–Dec', 4:'Q4 Jan–Mar'};
+    list.innerHTML = fys.map(fy => {
+      const rows = byFy[fy].sort((a,b) => a.quarter - b.quarter).map(b => {
+        let right;
+        if (b.isPaid) {
+          right = '<span style="color:var(--green);font-weight:600;">Paid</span>';
+        } else if (!b.ended) {
+          right = `<span style="color:var(--amber);">Due ${fmt(b.charge)} (current quarter)</span>`;
+        } else {
+          right = `<span style="color:var(--red);font-weight:600;">${fmt(b.owed)}</span>` +
+                  (b.penalty ? ` <span style="font-size:11px;color:var(--red);">(incl. ₹700 penalty)</span>` : '');
+        }
+        return `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span>${qNames[b.quarter]}</span>${right}</div>`;
+      }).join('');
+      return `<div style="margin-bottom:14px;">
+        <div style="font-weight:600;color:var(--navy);margin-bottom:4px;">FY ${fy}-${String(fy+1).slice(-2)}</div>
+        ${rows}</div>`;
+    }).join('');
+  } catch (e) {
+    list.innerHTML = `<span style="color:var(--red);">Could not load dues: ${e.message}</span>`;
+    if (total) total.textContent = '—';
+  }
 }
 
 function filterResBills(status, btn) {
@@ -5440,6 +5571,110 @@ const LEDGER_MODE_LABELS = {
   cash:'Cash', cheque:'Cheque', online:'Online',
   online_upi:'UPI', online_neft:'NEFT', online_rtgs:'RTGS', demand_draft:'DD',
 };
+
+/* ════════════════════════════════════════════════════════
+   MAINTENANCE DUES & PENALTIES
+   ₹4,000 per quarter; ₹700 penalty once an unpaid quarter ends;
+   unpaid balances carry forward. Admin toggles paid/unpaid per
+   quarter; totals are computed by the backend.
+   ════════════════════════════════════════════════════════ */
+let duesData = null; // last payload from /api/dues
+
+async function loadDues() {
+  const body = document.getElementById('dues-grid-body');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text2);">Loading…</td></tr>';
+  try {
+    duesData = await apiRequest('/api/dues');
+    populateDuesFyDropdown();
+    renderDuesKpis();
+    renderDuesGrid();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--red);">${e.message}</td></tr>`;
+  }
+}
+
+function populateDuesFyDropdown() {
+  const sel = document.getElementById('dues-fy-select');
+  if (!sel || !duesData) return;
+  const cur = sel.value;
+  let html = '';
+  for (let fy = duesData.currentFyStart; fy >= duesData.firstFyStart; fy--) {
+    html += `<option value="${fy}">FY ${fy}-${String(fy+1).slice(-2)}</option>`;
+  }
+  sel.innerHTML = html;
+  if (cur) sel.value = cur; else sel.value = duesData.currentFyStart;
+}
+
+function renderDuesKpis() {
+  if (!duesData) return;
+  const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+  let withDues = 0, maint = 0, pen = 0;
+  duesData.members.forEach(m => {
+    if (m.totalOwed > 0) withDues++;
+    maint += m.totalDue;
+    pen   += m.totalPenalty;
+  });
+  document.getElementById('dues-kpi-count').textContent   = withDues;
+  document.getElementById('dues-kpi-maint').textContent   = fmt(maint);
+  document.getElementById('dues-kpi-penalty').textContent = fmt(pen);
+  document.getElementById('dues-kpi-total').textContent   = fmt(maint + pen);
+}
+
+function renderDuesGrid() {
+  const body = document.getElementById('dues-grid-body');
+  if (!body || !duesData) return;
+  const fy = parseInt(document.getElementById('dues-fy-select').value) || duesData.currentFyStart;
+  const q  = (document.getElementById('dues-search').value || '').toLowerCase().trim();
+  const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
+
+  const list = duesData.members
+    .filter(m => !q || m.name.toLowerCase().includes(q) || (m.houseNumber||'').toLowerCase().includes(q))
+    .sort((a,b) => compareHouseNumbers(a.houseNumber, b.houseNumber));
+
+  if (list.length === 0) {
+    body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text2);">No residents found.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = list.map(m => {
+    // Build a quarter cell for the selected FY
+    const cell = qNum => {
+      const b = m.breakdown.find(x => x.fyStart === fy && x.quarter === qNum);
+      if (!b) {
+        // Quarter hasn't started yet this FY
+        return `<td style="text-align:center"><span class="q-cell q-future">—</span></td>`;
+      }
+      const cls = b.isPaid ? 'q-paid' : 'q-unpaid';
+      const label = b.isPaid ? 'Paid' : 'Unpaid';
+      const sub = b.isPaid ? '' : `<small>${fmt(b.owed)}${b.penalty ? ' (+₹700)' : ''}</small>`;
+      return `<td style="text-align:center">
+        <span class="q-cell ${cls}" onclick="toggleDue('${m.memberId}',${fy},${qNum},${b.isPaid})">
+          ${label}${sub}
+        </span></td>`;
+    };
+    return `<tr>
+      <td style="font-weight:500">${m.houseNumber || '—'}</td>
+      <td>${m.name}</td>
+      ${cell(1)}${cell(2)}${cell(3)}${cell(4)}
+      <td style="text-align:right;font-weight:600;color:${m.totalOwed > 0 ? 'var(--red)' : 'var(--green)'}">
+        ${m.totalOwed > 0 ? fmt(m.totalOwed) : '₹0'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function toggleDue(memberId, fyStart, quarter, currentlyPaid) {
+  try {
+    await apiRequest('/api/dues', {
+      method: 'PATCH',
+      body: JSON.stringify({ memberId, fyStart, quarter, isPaid: !currentlyPaid }),
+    });
+    await loadDues(); // reload so totals + penalties recompute
+  } catch (e) {
+    alert('Could not update: ' + e.message);
+  }
+}
 
 function initLedgerYearDropdowns() {
   const cur = new Date().getFullYear();
@@ -6547,6 +6782,13 @@ window.addEventListener('resize', () => {
     'Record of maintenance payments received, month by month':'माह-दर-माह प्राप्त मेंटेनेंस भुगतानों का रिकॉर्ड',
     '+ Add Payment':'+ भुगतान जोड़ें', 'Add Payment':'भुगतान जोड़ें', 'Edit Payment':'भुगतान संपादित करें',
     'Monthly Collections':'मासिक संग्रह', 'Import Payments from Excel':'एक्सेल से भुगतान इंपोर्ट करें',
+    'Dues & Penalties':'बकाया और जुर्माना', 'Quarterly Dues':'त्रैमासिक बकाया',
+    'Residents With Dues':'बकाया वाले निवासी', 'Total Maintenance Due':'कुल मेंटेनेंस बकाया',
+    'Total Penalties':'कुल जुर्माना', 'Total Outstanding':'कुल बकाया',
+    'House':'मकान', 'Resident':'निवासी', 'Total Owed':'कुल देय',
+    'Paid':'भुगतान किया', 'Unpaid':'अवैतनिक', 'No residents found.':'कोई निवासी नहीं मिला।',
+    'No dues on record.':'कोई बकाया दर्ज नहीं।', 'Could not update: ':'अपडेट नहीं हो सका: ',
+    'Search name / house…':'नाम / मकान खोजें…',
     'Expected columns:':'अपेक्षित कॉलम:', 'Name':'नाम', 'House No':'मकान नंबर',
     'Bill Book':'बिल बुक', 'Receipt No.':'रसीद नंबर', 'Bill Book No.':'बिल बुक नंबर',
     'Payer Name *':'भुगतानकर्ता नाम *', 'Amount (Rs.) *':'राशि (₹) *', 'Reading file...':'फ़ाइल पढ़ी जा रही है...',
