@@ -13,6 +13,10 @@
 
 <!-- Google Fonts: Playfair Display (headings) + DM Sans (body) -->
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<!-- Hindi fonts: Rozha One (display/headings) + Noto Sans Devanagari (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <!-- Chart.js for Analytics graphs -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <!-- SheetJS for reading uploaded XLSX / CSV analytics data -->
@@ -547,11 +551,15 @@ body.mobile-nav-open #mobile-overlay  { display: block; }
   .metrics-grid { grid-template-columns: 1fr; }
 }
 /* ── Bilingual support ── */
-body.lang-hi,
+/* In Hindi mode: readable Devanagari sans for body/table/form text … */
+body.lang-hi {
+  font-family: 'Noto Sans Devanagari','Nirmala UI','Mangal',sans-serif !important;
+}
+/* … and Rozha One (display serif) for headings & large display numbers */
 body.lang-hi h1, body.lang-hi h2, body.lang-hi h3, body.lang-hi h4,
 body.lang-hi .page-title, body.lang-hi .section-title, body.lang-hi .brand,
-body.lang-hi .metric-val, body.lang-hi .stat-num {
-  font-family: 'Nirmala UI','Kohinoor Devanagari','Noto Sans Devanagari','Mangal','Segoe UI',sans-serif !important;
+body.lang-hi .nav-brand, body.lang-hi .metric-val, body.lang-hi .stat-num {
+  font-family: 'Rozha One','Noto Sans Devanagari','Nirmala UI',serif !important;
 }
 /* Language toggle — sits in the nav bar */
 #lang-toggle {
@@ -6902,7 +6910,7 @@ window.addEventListener('resize', () => {
     'Q3 (Oct–Dec)':'ति3 (अक्ट–दिस)', 'Q4 (Jan–Mar)':'ति4 (जन–मार्च)'
   };
 
-  const HINDI_FONT = "'Nirmala UI','Kohinoor Devanagari','Noto Sans Devanagari','Mangal',sans-serif";
+  const HINDI_FONT = "'Noto Sans Devanagari','Nirmala UI','Mangal',sans-serif";
   const SKIP_TAGS = new Set(['SCRIPT','STYLE','CODE','PRE','TEXTAREA','INPUT','SELECT','OPTION']);
   // OPTION is skipped by walker but handled separately below (their text needs translating too)
 
