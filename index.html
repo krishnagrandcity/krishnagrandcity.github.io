@@ -6609,6 +6609,33 @@ window.addEventListener('resize', () => {
 (function () {
   // Exact English string  →  Hindi (Devanagari)
   const DICT = {
+    // ── Home / about / login subtexts ──
+    'A modern administrative platform for Krishna Grand City Society — transparent, efficient, and always at your service.':'कृष्णा ग्रैंड सिटी सोसायटी के लिए एक आधुनिक प्रशासनिक मंच — पारदर्शी, कुशल और सदैव आपकी सेवा में।',
+    'From maintenance tracking to member records — our admin portal gives committee members full visibility and control.':'मेंटेनेंस ट्रैकिंग से लेकर सदस्य रिकॉर्ड तक — हमारा एडमिन पोर्टल समिति सदस्यों को पूर्ण दृश्यता और नियंत्रण देता है।',
+    'Detailed profiles for all residents — categorized by unit type with contact details and payment history.':'सभी निवासियों की विस्तृत प्रोफ़ाइल — इकाई प्रकार के अनुसार वर्गीकृत, संपर्क विवरण और भुगतान इतिहास सहित।',
+    'Monitor payment status in real-time. Identify defaulters instantly and send reminders directly from the portal.':'भुगतान स्थिति की वास्तविक समय में निगरानी करें। बकायादारों को तुरंत पहचानें और पोर्टल से सीधे अनुस्मारक भेजें।',
+    'Role-based login for committee members. Your data stays protected with modern authentication.':'समिति सदस्यों के लिए भूमिका-आधारित लॉगिन। आपका डेटा आधुनिक प्रमाणीकरण से सुरक्षित रहता है।',
+    'Forgot your password? Contact your society office — a committee member or admin can reset it for you.':'पासवर्ड भूल गए? अपने सोसायटी कार्यालय से संपर्क करें — कोई समिति सदस्य या एडमिन इसे आपके लिए रीसेट कर सकता है।',
+    // ── Dues section subtext ──
+    '₹4,000 per quarter · ₹700 penalty once a quarter ends unpaid · carries forward across years':'₹4,000 प्रति तिमाही · तिमाही अवैतनिक समाप्त होने पर ₹700 जुर्माना · वर्षों में आगे बढ़ता है',
+    'Mark quarters for FY':'वित्तीय वर्ष के लिए तिमाही चिह्नित करें',
+    'Will be auto-generated on save (e.g. VCH-2026-0001)':'सहेजने पर स्वतः बन जाएगा (जैसे VCH-2026-0001)',
+    // ── Facilities subtexts ──
+    'Light refreshments and beverages available. A comfortable space to socialise with neighbours.':'हल्के जलपान और पेय उपलब्ध। पड़ोसियों के साथ मेलजोल के लिए एक आरामदायक स्थान।',
+    'Fully air-conditioned':'पूर्णतः वातानुकूलित', 'Up to 250 guests':'250 अतिथियों तक',
+    '48 hours minimum':'न्यूनतम 48 घंटे', '30 members':'30 सदस्य', '45+ machines':'45+ मशीनें',
+    'First floor of the Club House · Capacity: 250 persons':'क्लब हाउस की पहली मंज़िल · क्षमता: 250 व्यक्ति',
+    // ── Resident bills subtext ──
+    'To pay, visit the society office or use the UPI option on each unpaid bill. Contact the treasurer for queries.':'भुगतान के लिए सोसायटी कार्यालय जाएँ या प्रत्येक अवैतनिक बिल पर यूपीआई विकल्प का उपयोग करें। प्रश्नों के लिए कोषाध्यक्ष से संपर्क करें।',
+    // ── Member/photo + import subtexts ──
+    'Photo preview only for now — saving photos requires file storage setup, coming in a future step.':'अभी केवल फ़ोटो पूर्वावलोकन — फ़ोटो सहेजने के लिए फ़ाइल स्टोरेज सेटअप आवश्यक है, जो आगे के चरण में आएगा।',
+    'Upload an .xlsx file with the columns below.':'नीचे दिए गए कॉलम के साथ एक .xlsx फ़ाइल अपलोड करें।',
+    'unit_type is auto-detected from the house number':'इकाई प्रकार मकान नंबर से स्वतः पहचाना जाता है',
+    '— you do not need a unit_type column.':'— आपको unit_type कॉलम की आवश्यकता नहीं है।',
+    'Upload an .xlsx file with columns:':'इन कॉलम के साथ एक .xlsx फ़ाइल अपलोड करें:',
+    // ── Dues grid quarter headers (split nodes) ──
+    'Apr–Jun':'अप्रैल–जून', 'Jul–Sep':'जुलाई–सित', 'Oct–Dec':'अक्टू–दिस', 'Jan–Mar':'जन–मार्च',
+
     // ── Nav / shell ──
     'Home':'होम', 'About':'हमारे बारे में', 'Admin Login':'एडमिन लॉगिन',
     'Logout':'लॉगआउट', 'Admin Portal':'एडमिन पोर्टल', 'Admin Portal →':'एडमिन पोर्टल →',
