@@ -1325,67 +1325,6 @@ window.showToast = function (message, type) {
           </div>
         </div>
 
-        <!-- ══ DUES & PENALTIES (admin/committee) ══ -->
-        <div class="info-section admin-mgr-only" style="margin-bottom:24px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
-            <div>
-              <h3 style="margin-bottom:2px;">Dues &amp; Penalties</h3>
-              <p style="font-size:12px;color:var(--text2);">₹4,000 per quarter · ₹700 penalty once a quarter ends unpaid · carries forward across years</p>
-            </div>
-            <button class="btn-sm btn-sm-outline" onclick="loadDues()" style="padding:7px 12px;">&#8635; Refresh</button>
-          </div>
-
-          <!-- Society-wide dues KPIs -->
-          <div class="metrics-grid" style="margin-bottom:16px;">
-            <div class="metric-card">
-              <div class="metric-lbl">Residents With Dues</div>
-              <div class="metric-val" id="dues-kpi-count" style="color:var(--amber);">&mdash;</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-lbl">Total Maintenance Due</div>
-              <div class="metric-val" id="dues-kpi-maint" style="color:var(--red);">&mdash;</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-lbl">Total Penalties</div>
-              <div class="metric-val" id="dues-kpi-penalty" style="color:var(--red);">&mdash;</div>
-            </div>
-            <div class="metric-card">
-              <div class="metric-lbl">Total Outstanding</div>
-              <div class="metric-val" id="dues-kpi-total" style="color:var(--red);">&mdash;</div>
-            </div>
-          </div>
-
-          <!-- FY selector + search -->
-          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-            <label style="font-size:13px;color:var(--text2);">Mark quarters for FY</label>
-            <select class="form-select" id="dues-fy-select" onchange="renderDuesGrid()" style="width:150px;padding:7px 10px;font-size:13px;"></select>
-            <input class="form-input" id="dues-search" oninput="renderDuesGrid()" placeholder="Search name / house…" style="flex:1;min-width:160px;padding:7px 12px;font-size:13px;" />
-          </div>
-
-          <div style="overflow-x:auto;">
-            <table>
-              <thead>
-                <tr>
-                  <th>House</th>
-                  <th>Resident</th>
-                  <th style="text-align:center">Q1<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Apr–Jun</span></th>
-                  <th style="text-align:center">Q2<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Jul–Sep</span></th>
-                  <th style="text-align:center">Q3<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Oct–Dec</span></th>
-                  <th style="text-align:center">Q4<br><span style="font-weight:400;font-size:10px;color:var(--text2)">Jan–Mar</span></th>
-                  <th style="text-align:right">Total Owed</th>
-                </tr>
-              </thead>
-              <tbody id="dues-grid-body">
-                <tr><td colspan="7" style="text-align:center;padding:28px;color:var(--text2);">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <p style="font-size:11px;color:var(--text2);margin-top:8px;">
-            Tap a quarter to toggle paid (green) / unpaid (red). Grey = quarter not started yet.
-            A quarter that ends unpaid adds the ₹700 penalty automatically. "Total Owed" sums every unpaid quarter across all years.
-          </p>
-        </div>
-
         <!-- Monthly Collection Summary -->
         <div style="margin-bottom:24px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
@@ -2254,7 +2193,8 @@ window.showToast = function (message, type) {
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">House No. *</label>
-        <input class="form-input" id="pe-house" placeholder="e.g. K-05, R-56, Sunshine-26" oninput="fillOwnerFromHouse()" autocomplete="off" />
+        <input class="form-input" id="pe-house" list="pe-house-list" placeholder="e.g. K-05, Kingston - 5, R-56" oninput="fillOwnerFromHouse()" autocomplete="off" />
+        <datalist id="pe-house-list"></datalist>
         <div id="pe-owner-hint" style="font-size:12px;margin-top:4px;color:var(--text2);"></div>
       </div>
       <div class="form-group">
@@ -3391,7 +3331,7 @@ function showDash(view) {
   if (view === 'members')        loadMembers();
   if (view === 'notices')        loadNotices();
   if (view === 'complaints')     loadComplaints();
-  if (view === 'bills')          { initLedgerYearDropdowns(); loadLedger(); loadLedgerSummary(); if (isAdmin() || isManager()) loadDues(); }
+  if (view === 'bills')          { initLedgerYearDropdowns(); loadLedger(); loadLedgerSummary(); }
   if (view === 'facilities')     loadHallBookings();
   if (view === 'resident-home')  loadResidentHome();
   if (view === 'res-bills')      loadResBills();
@@ -5957,25 +5897,83 @@ async function loadLedger() {
 // ── Add / Edit payment modal ──
 let currentEditLedgerId = null;
 
+// Canonical key for a house number, so "Kingston - 05", "K-5", "k 05" and
+// "KINGSTON5" all compare equal. Case, spaces, hyphens/dots and leading zeros
+// are ignored, and block names collapse to their abbreviations
+// (Kingston=K, Regal=R, Row House=RH).
+function houseKey(str) {
+  return String(str || '').toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .replace(/^KINGSTON/, 'K')
+    .replace(/^REGAL/, 'R')
+    .replace(/^ROWHOUSE/, 'RH')
+    .replace(/([A-Z])0+(\d)/g, '$1$2');
+}
+
+// Split a house number into its block letters and unit number: "Kingston - 05" -> {block:'KINGSTON', num:5}
+function splitHouse(str) {
+  const t = String(str || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const m = t.match(/^([A-Z]*?)0*(\d+)$/);
+  return m ? { block: m[1], num: parseInt(m[2], 10) } : null;
+}
+
+// Find the member for a typed house number. Tries the exact canonical key first,
+// then falls back to "same unit number and the block names start alike"
+// (K ↔ Kingston, R ↔ Regal, RH ↔ Row House ...), accepted only if exactly one member fits.
+function findMemberByHouse(typed) {
+  const key = houseKey(typed);
+  const exact = members.find(x => houseKey(x.house) === key);
+  if (exact) return { member: exact };
+  const t = splitHouse(typed);
+  if (!t || !t.block) return { member: null, candidates: [] };
+  const aliases = { RH: 'ROWHOUSE', K: 'KINGSTON', R: 'REGAL' };
+  const tb = aliases[t.block] || t.block;
+  const hits = members.filter(x => {
+    const h = splitHouse(x.house);
+    if (!h || h.num !== t.num) return false;
+    const hb = aliases[h.block] || h.block;
+    return hb.startsWith(tb) || tb.startsWith(hb);
+  });
+  if (hits.length === 1) return { member: hits[0] };
+  return { member: null, candidates: hits };
+}
+
+// Fill the house-number suggestions from the members list.
+function populateHouseSuggestions() {
+  const dl = document.getElementById('pe-house-list');
+  if (!dl) return;
+  dl.innerHTML = [...members].sort((a, b) => compareHouseNumbers(a.house, b.house))
+    .map(m => `<option value="${String(m.house).replace(/"/g, '&quot;')}">${String(m.name || '').replace(/</g, '&lt;')}</option>`).join('');
+}
+
 // Map a house number to its owner from the loaded members list.
 function fillOwnerFromHouse() {
   const house  = document.getElementById('pe-house').value.trim();
   const nameEl = document.getElementById('pe-name');
   const hint   = document.getElementById('pe-owner-hint');
-  const norm   = s => (s || '').toString().trim().toUpperCase();
   if (!house) { nameEl.value = ''; if (hint) hint.textContent = ''; return; }
-  const m = members.find(x => norm(x.house) === norm(house));
+  const found = findMemberByHouse(house);
+  const m = found.member;
   if (m) {
     nameEl.value = m.name;
-    if (hint) { hint.textContent = '✓ ' + m.name + (m.type ? ' · ' + m.type : ''); hint.style.color = 'var(--green)'; }
+    nameEl.dataset.house = m.house;   // canonical house number, sent on save
+    if (hint) { hint.textContent = '✓ ' + m.house + ' · ' + m.name; hint.style.color = 'var(--green)'; }
   } else {
     nameEl.value = '';
-    if (hint) { hint.textContent = 'No member found for this house number.'; hint.style.color = 'var(--red)'; }
+    delete nameEl.dataset.house;
+    if (hint) {
+      const c = found.candidates || [];
+      hint.textContent = c.length > 1
+        ? 'More than one match — pick one: ' + c.slice(0, 4).map(x => x.house).join(', ')
+        : (members.length ? 'No member found for this house number. Pick from the suggestions.' : 'Members are still loading — try again in a moment.');
+      hint.style.color = 'var(--red)';
+    }
   }
 }
 
 async function openAddPaymentModal() {
   if (!members || members.length === 0) { try { await loadMembers(); } catch (e) {} }
+  populateHouseSuggestions();
   currentEditLedgerId = null;
   document.getElementById('pe-modal-title').textContent = 'Add Payment';
   document.getElementById('pe-date').value = new Date().toISOString().split('T')[0];
@@ -5993,6 +5991,7 @@ async function openAddPaymentModal() {
 
 async function openEditPaymentModal(id) {
   if (!members || members.length === 0) { try { await loadMembers(); } catch (e) {} }
+  populateHouseSuggestions();
   const p = ledgerRows.find(r => r.id === id);
   if (!p) { alert('Could not find entry. Reload the page.'); return; }
   currentEditLedgerId = id;
@@ -6023,7 +6022,7 @@ async function submitPaymentEntry() {
   const body = {
     paymentDate:    document.getElementById('pe-date').value,
     payerName:      document.getElementById('pe-name').value.trim(),
-    houseNumber:    document.getElementById('pe-house').value.trim(),
+    houseNumber:    document.getElementById('pe-name').dataset.house || document.getElementById('pe-house').value.trim(),
     description:    document.getElementById('pe-description').value.trim() || 'Maintenance',
     amount:         parseFloat(document.getElementById('pe-amount').value),
     paymentMode:    document.getElementById('pe-mode').value,
