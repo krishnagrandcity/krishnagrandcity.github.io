@@ -2196,7 +2196,7 @@ window.showToast = function (message, type) {
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">House No. *</label>
-        <input class="form-input" id="pe-house" list="pe-house-list" placeholder="e.g. K-05, Kingston - 5, R-56" oninput="fillOwnerFromHouse()" autocomplete="off" />
+        <input class="form-input" id="pe-house" list="pe-house-list" placeholder="e.g. K-05, Shop - 12, R-56" oninput="fillOwnerFromHouse()" autocomplete="off" />
         <datalist id="pe-house-list"></datalist>
         <div id="pe-owner-hint" style="font-size:12px;margin-top:4px;color:var(--text2);"></div>
       </div>
@@ -5966,7 +5966,7 @@ function fillOwnerFromHouse() {
   if (m) {
     nameEl.value = m.name;
     nameEl.dataset.house = m.house;   // canonical house number, sent on save
-    if (hint) { hint.textContent = '✓ ' + m.house + ' · ' + m.name; hint.style.color = 'var(--green)'; }
+    if (hint) { hint.textContent = '✓ ' + m.house + ' · ' + m.name + (m.type ? ' · ' + getTypeShortLabel(m.type) : ''); hint.style.color = 'var(--green)'; }
   } else {
     nameEl.value = '';
     delete nameEl.dataset.house;
