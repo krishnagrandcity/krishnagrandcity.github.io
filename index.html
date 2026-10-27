@@ -990,6 +990,7 @@ window.showToast = function (message, type) {
           <div class="metric-card"><div class="metric-lbl">2 BHK Units</div><div class="metric-val" id="m-2bhk">0</div></div>
           <div class="metric-card"><div class="metric-lbl">3 BHK Units</div><div class="metric-val" id="m-3bhk">0</div></div>
           <div class="metric-card"><div class="metric-lbl">Row Houses</div><div class="metric-val" id="m-rh">0</div></div>
+          <div class="metric-card"><div class="metric-lbl">Shops</div><div class="metric-val" id="m-shop">0</div></div>
           <div class="metric-card"><div class="metric-lbl">Inactive / Moved Out</div><div class="metric-val" id="m-inactive" style="color:var(--text2)">0</div></div>
         </div>
 
@@ -999,6 +1000,7 @@ window.showToast = function (message, type) {
           <button class="ftab" onclick="filterMembers('2bhk', this)">2 BHK (Regal / Sunshine)</button>
           <button class="ftab" onclick="filterMembers('3bhk', this)">3 BHK (Kingston)</button>
           <button class="ftab" onclick="filterMembers('rowhouse', this)">Row House (Antillia / Empress / Royale)</button>
+          <button class="ftab" onclick="filterMembers('shop', this)">Shop</button>
         </div>
 
         <!-- Members table with search -->
@@ -2051,7 +2053,7 @@ window.showToast = function (message, type) {
       </div>
       <div class="form-group">
         <label class="form-label">House Number *</label>
-        <input class="form-input" id="f-house" placeholder="e.g. A-301" />
+        <input class="form-input" id="f-house" placeholder="e.g. Kingston - 05, Shop - 12" />
       </div>
     </div>
     <div class="form-row">
@@ -2062,6 +2064,7 @@ window.showToast = function (message, type) {
           <option value="2bhk">2 BHK</option>
           <option value="3bhk">3 BHK</option>
           <option value="rowhouse">Row House</option>
+          <option value="shop">Shop</option>
         </select>
       </div>
       <div class="form-group">
@@ -2493,7 +2496,8 @@ window.showToast = function (message, type) {
         <strong style="color:var(--navy);">Unit type auto-detection:</strong><br/>
         &nbsp;Row House → <code>Antilia-xx</code>, <code>Empress-xx</code>, <code>Royale-xx</code><br/>
         &nbsp;2 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Regal-xx</code>, <code>A-1-xx</code>, <code>A-2-xx</code><br/>
-        &nbsp;3 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Kingston-xx</code>
+        &nbsp;3 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Kingston-xx</code><br/>
+        &nbsp;Shop &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <code>Shop-xx</code>
       </div>
       <input type="file" id="import-file-input" accept=".xlsx,.xls" onchange="handleImportFile(event)" />
       <div id="import-parse-error" class="error-msg hidden" style="margin-top:12px;"></div>
@@ -2615,6 +2619,7 @@ function handleImportFile(event) {
       //   "A1 - 1", "A1 - 2"  (Block A-1)               → 2bhk
       //   "A2 - 33"            (Block A-2)               → 2bhk
       //   "Kingston - 01"                                → 3bhk
+      //   "Shop - 12"                                    → shop
       // Falls back to the sheet name if the prefix is not recognised.
       function deriveUnitType(houseNumber, sheetName) {
         const hn = houseNumber.trim();
@@ -2627,6 +2632,7 @@ function handleImportFile(event) {
         if (/^(a1|a-1)\b/i.test(hn))                         return '2bhk';  // legacy, pre-rename
         if (/^(a2|a-2)\b/i.test(hn))                         return '2bhk';  // legacy, pre-rename
         if (/^kingston\b/i.test(hn))                          return '3bhk';
+        if (/^shop\b/i.test(hn))                              return 'shop';
 
         // Fallback: derive from sheet name
         if (sn.includes('row house'))                           return 'rowhouse';
@@ -2634,12 +2640,13 @@ function handleImportFile(event) {
             sn.includes('a - 2') || sn.includes('a-1') ||
             sn.includes('a-2'))                                 return '2bhk';
         if (sn.includes('3 bhk'))                              return '3bhk';
+        if (sn.includes('shop'))                               return 'shop';
 
         return ''; // unknown — will show as error in preview
       }
 
-      // Sheets to skip — SHOP contains commercial units, not residents
-      const SKIP_SHEETS = ['shop'];
+      // Sheets to skip (none now — Shop units are imported as unit type "shop")
+      const SKIP_SHEETS = [];
 
       // Read ALL sheets and merge into one flat array
       let allRows = [];
@@ -3354,12 +3361,13 @@ function getTypeLabel(t) {
     '2bhk':     '2 BHK (Regal / Sunshine)',
     '3bhk':     '3 BHK (Kingston)',
     'rowhouse': 'Row House (Antillia / Empress / Royale)',
+    'shop':     'Shop',
   }[t] || t;
 }
 
 // Shorter label used in tight spaces like table badges
 function getTypeShortLabel(t) {
-  return { '2bhk': '2 BHK', '3bhk': '3 BHK', 'rowhouse': 'Row House' }[t] || t;
+  return { '2bhk': '2 BHK', '3bhk': '3 BHK', 'rowhouse': 'Row House', 'shop': 'Shop' }[t] || t;
 }
 // Returns one of 8 avatar background colours based on member id.
 // Member ids are UUIDs (strings) from the real database, so we hash
@@ -3390,6 +3398,7 @@ function renderMemberMetrics() {
   document.getElementById('m-2bhk').textContent     = members.filter(m => m.type === '2bhk').length;
   document.getElementById('m-3bhk').textContent     = members.filter(m => m.type === '3bhk').length;
   document.getElementById('m-rh').textContent       = members.filter(m => m.type === 'rowhouse').length;
+  document.getElementById('m-shop').textContent     = members.filter(m => m.type === 'shop').length;
   document.getElementById('m-inactive').textContent = members.filter(m => !m.isActive).length;
 }
 
@@ -4187,7 +4196,7 @@ async function initCharts() {
   // Unit type donut chart — computed from members data (not period-dependent)
   chartInstances.units = new Chart(document.getElementById('chart-units'), {
     type: 'doughnut',
-    data: { labels: ['2 BHK','3 BHK','Row House'], datasets: [{ data: [members.filter(m=>m.type==='2bhk').length, members.filter(m=>m.type==='3bhk').length, members.filter(m=>m.type==='rowhouse').length], backgroundColor: ['#0f1f3d','#c9a84c','#2d7a4f'], borderWidth: 0 }] },
+    data: { labels: ['2 BHK','3 BHK','Row House','Shop'], datasets: [{ data: [members.filter(m=>m.type==='2bhk').length, members.filter(m=>m.type==='3bhk').length, members.filter(m=>m.type==='rowhouse').length, members.filter(m=>m.type==='shop').length], backgroundColor: ['#0f1f3d','#c9a84c','#2d7a4f','#8b4f9e'], borderWidth: 0 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '65%' }
   });
 
@@ -6889,6 +6898,7 @@ window.addEventListener('resize', () => {
     'Society Members':'सोसायटी सदस्य', 'Manage and view all resident records':'सभी निवासी रिकॉर्ड प्रबंधित करें और देखें',
     '📤 Import from Excel':'📤 एक्सेल से इंपोर्ट करें', '+ Add New Member':'+ नया सदस्य जोड़ें',
     'Total Members':'कुल सदस्य', '2 BHK Units':'2 बीएचके इकाइयाँ', '3 BHK Units':'3 बीएचके इकाइयाँ',
+    'Shops':'दुकानें', 'Shop':'दुकान', 'e.g. Kingston - 05, Shop - 12':'उदा. किंग्स्टन - 05, दुकान - 12',
     'Row Houses':'रो हाउस', 'Inactive / Moved Out':'निष्क्रिय / स्थानांतरित',
     'All':'सभी', '2 BHK (Regal / Sunshine)':'2 बीएचके (रीगल / सनशाइन)',
     '2 BHK (Regal / A-1 / A-2)':'2 बीएचके (रीगल / A-1 / A-2)',
