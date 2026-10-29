@@ -11,6 +11,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>KGC Admin — Krishna Grand City Society</title>
 
+<!-- Installable web app (PWA): manifest, icons and phone-browser colours -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0f1f3d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="KGC" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
 <!-- Google Fonts: Libre Caslon Text (headings) + Hanken Grotesk (body) -->
 <link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <!-- Hindi fonts: Rozha One (display/headings) + Noto Sans Devanagari (body) -->
@@ -681,6 +691,26 @@ tbody tr:hover { background: color-mix(in srgb, var(--gold) 9%, transparent); }
 }
 @keyframes skShimmer { to { transform: translateX(100%); } }
 
+/* --- Install app: nav button, bottom banner, iPhone steps --- */
+#nav-install-btn { display: none; }
+#nav-install-btn.show { display: inline-block; }
+#install-banner {
+  position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 150;
+  display: none; align-items: center; gap: 12px;
+  background: var(--navy); color: #fff; border-radius: 14px;
+  padding: 12px 14px; box-shadow: 0 10px 34px rgba(15,31,61,0.35);
+  border: 1px solid rgba(201,168,76,0.35);
+  animation: kgcRise .3s cubic-bezier(.2,.8,.2,1) both;
+}
+#install-banner.show { display: flex; }
+#install-banner img { width: 42px; height: 42px; border-radius: 10px; flex-shrink: 0; }
+#install-banner .ib-text { flex: 1; font-size: 13px; line-height: 1.4; }
+#install-banner .ib-text b { display: block; font-size: 14px; }
+#install-banner .ib-go { background: var(--gold); color: var(--navy); border: none; border-radius: 8px; padding: 9px 14px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+#install-banner .ib-no { background: none; border: none; color: rgba(255,255,255,0.7); font-size: 22px; line-height: 1; cursor: pointer; padding: 2px 6px; }
+@media (min-width: 769px) { #install-banner { left: auto; right: 20px; bottom: 20px; max-width: 380px; } }
+.install-steps { margin: 4px 0 6px 18px; padding: 0; font-size: 14px; line-height: 1.9; color: var(--text); }
+
 /* --- Respect reduced motion --- */
 @media (prefers-reduced-motion: reduce) {
   *, .toast, .modal-box, .modal-overlay { animation: none !important; transition: none !important; }
@@ -739,6 +769,7 @@ window.showToast = function (message, type) {
     <button class="nav-btn" onclick="showPage('about')">About</button>
     <button class="nav-btn" id="nav-login-btn" onclick="showPage('login')">Admin Login</button>
     <button class="nav-btn" id="nav-logout-btn" style="display:none" onclick="logout()">Logout</button>
+    <button class="nav-btn" id="nav-install-btn" onclick="kgcInstallApp()">Install app</button>
     <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
   </div>
 </nav>
@@ -7133,6 +7164,12 @@ function buildMobileMenu() {
     html += `<button class="mm-btn gold" onclick="closeMobileMenu(); showPage('login')">Admin Login</button>`;
   }
 
+  // Install the app (only offered when the browser allows it and it is not installed yet)
+  if (typeof kgcCanInstall === 'function' && kgcCanInstall()) {
+    html += '<div class="mm-label">App</div>';
+    html += `<button class="mm-btn" onclick="closeMobileMenu(); kgcInstallApp()">📲 Install app</button>`;
+  }
+
   // Language switch
   const curLang = localStorage.getItem('kgc_lang') || 'en';
   html += '<div class="mm-label">Language</div>';
@@ -7377,6 +7414,8 @@ window.addEventListener('resize', () => {
     'Record of maintenance payments received, month by month':'माह-दर-माह प्राप्त मेंटेनेंस भुगतानों का रिकॉर्ड',
     '+ Add Payment':'+ भुगतान जोड़ें', 'Add Payment':'भुगतान जोड़ें', 'Edit Payment':'भुगतान संपादित करें',
     'Monthly Collections':'मासिक संग्रह',
+    'Install app':'ऐप इंस्टॉल करें', 'Install the KGC app':'KGC ऐप इंस्टॉल करें', 'Install':'इंस्टॉल', 'Got it':'समझ गया',
+    'Open it from your home screen, full screen.':'इसे होम स्क्रीन से पूरी स्क्रीन में खोलें।',
     'Duration':'अवधि', 'Starting quarter':'शुरुआती तिमाही', '1 quarter':'1 तिमाही', '2 quarters':'2 तिमाही', '3 quarters':'3 तिमाही',
     'Covers':'अवधि कवर', 'Full year':'पूरा वर्ष', 'Not recorded (older entry)':'दर्ज नहीं (पुरानी प्रविष्टि)',
     'Export CSV':'CSV निर्यात करें', 'What to export':'क्या निर्यात करना है', 'Payments received (list of entries)':'प्राप्त भुगतान (प्रविष्टियों की सूची)',
@@ -7649,5 +7688,101 @@ window.addEventListener('resize', () => {
 })();
 </script>
 
+
+<!-- Install banner + iPhone instructions -->
+<div id="install-banner" role="dialog" aria-label="Install the KGC app">
+  <img src="icon-192.png" alt="" />
+  <div class="ib-text"><b>Install the KGC app</b>Open it from your home screen, full screen.</div>
+  <button class="ib-go" onclick="kgcInstallApp()">Install</button>
+  <button class="ib-no" onclick="kgcDismissInstall()" aria-label="Not now">&times;</button>
+</div>
+
+<div class="modal-overlay hidden" id="install-help-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Install the KGC app</h2>
+      <button class="modal-close" onclick="closeInstallHelp()">&times;</button>
+    </div>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:8px;" id="install-help-intro">On iPhone and iPad, install it from Safari:</p>
+    <ol class="install-steps" id="install-help-steps">
+      <li>Tap the <b>Share</b> button at the bottom of Safari.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The KGC icon now opens the app full screen.</li>
+    </ol>
+    <div class="modal-actions"><button class="btn-add btn-gold" onclick="closeInstallHelp()">Got it</button></div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   INSTALLABLE APP (PWA)
+   - registers the service worker (offline opening, faster loads)
+   - Android / desktop Chrome & Edge: uses the browser's install prompt
+   - iPhone / iPad Safari: shows the "Add to Home Screen" steps
+   - tells the user when the phone goes offline / comes back online
+   ══════════════════════════════════════════════════════════════ */
+(function () {
+  var deferredPrompt = null;
+  var isStandalone = function () {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  };
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var DISMISS_KEY = 'kgc_install_dismissed';
+
+  function recentlyDismissed() {
+    try { var t = parseInt(localStorage.getItem(DISMISS_KEY) || '0', 10); return t && (Date.now() - t) < 14 * 864e5; }
+    catch (e) { return false; }
+  }
+  // Can we offer installation right now?
+  window.kgcCanInstall = function () { return !isStandalone() && (!!deferredPrompt || isIOS); };
+
+  function refreshInstallUi() {
+    var can = window.kgcCanInstall();
+    var btn = document.getElementById('nav-install-btn');
+    if (btn) btn.classList.toggle('show', can);
+    var banner = document.getElementById('install-banner');
+    if (banner) banner.classList.toggle('show', can && !recentlyDismissed() && window.innerWidth <= 768);
+  }
+
+  window.kgcInstallApp = function () {
+    if (deferredPrompt) {
+      var dp = deferredPrompt;
+      dp.prompt();
+      dp.userChoice.then(function (c) {
+        deferredPrompt = null;
+        if (c && c.outcome === 'accepted' && window.showToast) showToast('Installing the KGC app…', 'ok');
+        refreshInstallUi();
+      });
+    } else if (isIOS) {
+      document.getElementById('install-help-modal').classList.remove('hidden');
+    }
+  };
+  window.closeInstallHelp = function () { document.getElementById('install-help-modal').classList.add('hidden'); };
+  window.kgcDismissInstall = function () {
+    try { localStorage.setItem(DISMISS_KEY, String(Date.now())); } catch (e) {}
+    var b = document.getElementById('install-banner'); if (b) b.classList.remove('show');
+  };
+
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredPrompt = e; refreshInstallUi(); });
+  window.addEventListener('appinstalled', function () {
+    deferredPrompt = null; refreshInstallUi();
+    if (window.showToast) showToast('KGC app installed.', 'ok');
+  });
+  window.addEventListener('resize', refreshInstallUi);
+  window.addEventListener('DOMContentLoaded', refreshInstallUi);
+
+  // Offline / online notices
+  window.addEventListener('offline', function () { if (window.showToast) showToast('You are offline. Society data needs an internet connection.', 'err'); });
+  window.addEventListener('online',  function () { if (window.showToast) showToast('Back online.', 'ok'); });
+
+  // Service worker (only on http/https, not when the file is opened directly)
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () { /* the site still works without it */ });
+    });
+  }
+})();
+</script>
 </body>
 </html>
