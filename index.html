@@ -716,6 +716,11 @@ tbody tr:hover { background: color-mix(in srgb, var(--gold) 9%, transparent); }
   *, .toast, .modal-box, .modal-overlay { animation: none !important; transition: none !important; }
   .btn-add:hover, .btn-gold:hover, .btn-full:hover, .metric-card:hover { transform: none; }
 }
+
+/* Role gating that also applies to dynamically rendered elements */
+body[data-tier="committee"] .admin-only, body[data-tier="committee"] .write-only, body[data-tier="committee"] .admin-mgr-only,
+body[data-tier="manager"] .admin-only,
+body[data-tier="resident"] .admin-only, body[data-tier="resident"] .write-only, body[data-tier="resident"] .admin-mgr-only { display: none !important; }
 </style>
 </head>
 <body>
@@ -3362,6 +3367,8 @@ function canWrite()    { return isAdmin() || isManager(); }
 function canDelete()   { return isAdmin(); }
 
 function applyPermissions() {
+  // Tier on <body> drives CSS rules that also cover rows rendered later (ledger/expense Edit/Del columns)
+  document.body.dataset.tier = (currentUser && currentUser.tier) || '';
   const admin     = isAdmin();
   const manager   = isManager();
   const committee = isCommittee();
