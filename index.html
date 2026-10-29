@@ -1387,12 +1387,13 @@ window.showToast = function (message, type) {
                   <th>Mode</th>
                   <th>Bill Book</th>
                   <th>Receipt No.</th>
+                  <th>Covers</th>
                   <th>Remark</th>
                   <th class="admin-only">Actions</th>
                 </tr>
               </thead>
               <tbody id="ledger-tbody">
-                <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>
+                <tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>
               </tbody>
             </table>
           </div>
@@ -2174,6 +2175,71 @@ window.showToast = function (message, type) {
   </div>
 </div>
 
+<!-- EXPORT CSV DIALOG (payment ledger) -->
+<div class="modal-overlay hidden" id="export-modal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Export CSV</h2>
+      <button class="modal-close" onclick="closeExportModal()">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">What to export</label>
+      <select class="form-select" id="ex-kind" onchange="updateExportDialog()">
+        <option value="payments">Payments received (list of entries)</option>
+        <option value="status">Paid &amp; unpaid list (by house)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Period</label>
+        <select class="form-select" id="ex-period" onchange="updateExportDialog()">
+          <option value="fy">Complete financial year</option>
+          <option value="q1">Quarter 1 (Apr–Jun)</option>
+          <option value="q2">Quarter 2 (Jul–Sep)</option>
+          <option value="q3">Quarter 3 (Oct–Dec)</option>
+          <option value="q4">Quarter 4 (Jan–Mar)</option>
+          <option value="custom">Custom date range</option>
+        </select>
+      </div>
+      <div class="form-group" id="ex-fy-wrap">
+        <label class="form-label">Financial year</label>
+        <select class="form-select" id="ex-fy" onchange="updateExportDialog()"></select>
+      </div>
+    </div>
+
+    <div class="form-row hidden" id="ex-custom-wrap">
+      <div class="form-group">
+        <label class="form-label">From</label>
+        <input class="form-input" type="date" id="ex-from" onchange="updateExportDialog()" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">To</label>
+        <input class="form-input" type="date" id="ex-to" onchange="updateExportDialog()" />
+      </div>
+    </div>
+
+    <div class="form-group hidden" id="ex-status-wrap">
+      <label class="form-label">Show</label>
+      <select class="form-select" id="ex-status">
+        <option value="all">All houses (with Paid / Unpaid status)</option>
+        <option value="paid">Paid only</option>
+        <option value="unpaid">Unpaid &amp; part-paid only</option>
+      </select>
+    </div>
+
+    <div id="ex-preview" style="font-size:13px;font-weight:600;color:var(--navy);margin:2px 0 6px;"></div>
+    <div id="ex-hint" style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:6px;"></div>
+
+    <div id="ex-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="ex-submit-btn" onclick="runLedgerExport()">Download CSV</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD / EDIT PAYMENT MODAL (payment ledger) -->
 <div class="modal-overlay hidden" id="payment-entry-modal">
   <div class="modal-box" style="max-width:560px;">
@@ -2185,11 +2251,11 @@ window.showToast = function (message, type) {
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Date *</label>
-        <input class="form-input" type="date" id="pe-date" />
+        <input class="form-input" type="date" id="pe-date" onchange="updatePaymentDuration()" />
       </div>
       <div class="form-group">
         <label class="form-label">Amount (Rs.) *</label>
-        <input class="form-input" type="number" id="pe-amount" min="0" />
+        <input class="form-input" type="number" id="pe-amount" min="0" oninput="updatePaymentDuration()" />
       </div>
     </div>
 
@@ -2205,6 +2271,23 @@ window.showToast = function (message, type) {
         <input class="form-input" id="pe-name" placeholder="Fetched from house no." readonly style="background:var(--surface2);cursor:not-allowed;" />
       </div>
     </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Duration</label>
+        <select class="form-select" id="pe-duration" onchange="updatePaymentDuration()">
+          <option value="1">1 quarter</option>
+          <option value="2">2 quarters</option>
+          <option value="3">3 quarters</option>
+          <option value="4">Complete financial year</option>
+        </select>
+      </div>
+      <div class="form-group" id="pe-start-wrap">
+        <label class="form-label">Starting quarter</label>
+        <select class="form-select" id="pe-start-q" onchange="peStartTouched=true;updatePaymentDuration()"></select>
+      </div>
+    </div>
+    <div id="pe-duration-hint" style="font-size:12px;line-height:1.6;margin:-4px 0 14px;"></div>
 
     <div class="form-group">
       <label class="form-label">Description</label>
@@ -5857,7 +5940,7 @@ async function loadLedgerSummary() {
 async function loadLedger() {
   const tbody = document.getElementById('ledger-tbody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text2);">Loading...</td></tr>';
 
   try {
     const month = document.getElementById('ledger-filter-month')?.value || '';
@@ -5870,7 +5953,7 @@ async function loadLedger() {
     ledgerRows = await apiRequest('/api/ledger' + query);
 
     if (ledgerRows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text2);">No payments found for this period.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text2);">No payments found for this period.</td></tr>';
       document.getElementById('ledger-total-row').textContent = '';
       return;
     }
@@ -5887,6 +5970,7 @@ async function loadLedger() {
         <td><span class="badge badge-navy">${LEDGER_MODE_LABELS[p.payment_mode] || p.payment_mode}</span></td>
         <td>${p.bill_book_number || '-'}</td>
         <td>${p.receipt_number || '-'}</td>
+        <td style="white-space:nowrap;">${paymentCoversLabel(p)}</td>
         <td>${p.remark ? `<span class="badge badge-amber">${p.remark}</span>` : '<span style="color:var(--text3);">-</span>'}</td>
         <td class="admin-only" style="white-space:nowrap;">
           <button class="btn-sm btn-sm-outline" onclick="openEditPaymentModal('${p.id}')">Edit</button>
@@ -5899,7 +5983,7 @@ async function loadLedger() {
     document.getElementById('ledger-total-row').innerHTML =
       `Total for selected period: <span style="color:var(--green);">Rs. ${total.toLocaleString('en-IN', {maximumFractionDigits:0})}</span> (${ledgerRows.length} payments)`;
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--red);">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--red);">${err.message}</td></tr>`;
   }
 }
 
@@ -5917,6 +6001,97 @@ function houseKey(str) {
     .replace(/^REGAL/, 'R')
     .replace(/^ROWHOUSE/, 'RH')
     .replace(/([A-Z])0+(\d)/g, '$1$2');
+}
+
+/* ── Payment duration (which quarters a payment covers) ──
+   Default = 1 quarter, matched to the financial quarter of the payment date.
+   The recorder can pick 2 or 3 quarters, or the complete financial year.
+   An amount above what the chosen duration allows is recorded as
+   "Payment of previous dues" (the server adds that remark). */
+let peStartTouched = false;
+const PAY_Q_NAMES = { 1: 'Q1 (Apr–Jun)', 2: 'Q2 (Jul–Sep)', 3: 'Q3 (Oct–Dec)', 4: 'Q4 (Jan–Mar)' };
+
+function localISODate() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function payQuarterOfDate(iso) {
+  const m = parseInt(String(iso).slice(5, 7), 10);
+  return m >= 4 && m <= 6 ? 1 : m >= 7 && m <= 9 ? 2 : m >= 10 && m <= 12 ? 3 : 4;
+}
+function payFyLabel(iso) {
+  const y = parseInt(String(iso).slice(0, 4), 10), m = parseInt(String(iso).slice(5, 7), 10);
+  const fy = m >= 4 ? y : y - 1;
+  return `${fy}-${String(fy + 1).slice(-2)}`;
+}
+function payQuarterFee() {
+  const found = findMemberByHouse(document.getElementById('pe-house').value.trim());
+  return (found.member && found.member.type === 'shop') ? EXPORT_QUARTERLY_FEE.shop : EXPORT_QUARTERLY_FEE.home;
+}
+// Short text such as "Q2", "Q2–Q3" or "Full year"
+function payCoversText(n, s) {
+  return n === 4 ? 'Full year' : (n === 1 ? `Q${s}` : `Q${s}–Q${s + n - 1}`);
+}
+// Table cell: which quarters a recorded payment covers
+function paymentCoversLabel(p) {
+  const n = p.quarters_covered, st = p.start_quarter;
+  if (!n || !st) return '<span style="color:var(--text3);">-</span>';
+  return `<span style="font-weight:500;">${payCoversText(n, st)}</span><div style="font-size:11px;color:var(--text2);">FY ${p.financial_year}</div>`;
+}
+
+// Keeps the Starting-quarter list, the hint and the warning in step with the form.
+function updatePaymentDuration() {
+  const dSel = document.getElementById('pe-duration'), sSel = document.getElementById('pe-start-q');
+  const wrap = document.getElementById('pe-start-wrap'), hint = document.getElementById('pe-duration-hint');
+  if (!dSel || !sSel || !hint) return;
+
+  if (dSel.value === 'legacy') {            // older entry with no duration on record
+    wrap.classList.add('hidden');
+    hint.style.color = 'var(--text2)';
+    hint.textContent = 'This older entry has no duration recorded. Choose a duration to record one, or leave it as it is.';
+    return;
+  }
+  const n = parseInt(dSel.value, 10) || 1;
+  const date = document.getElementById('pe-date').value;
+  const dateQ = date ? payQuarterOfDate(date) : 1;
+  const maxStart = 5 - n;                   // the quarters must fit inside one financial year
+  const prev = parseInt(sSel.value, 10) || 0;
+  sSel.innerHTML = '';
+  for (let q = 1; q <= maxStart; q++) {
+    const o = document.createElement('option');
+    o.value = q; o.textContent = PAY_Q_NAMES[q];
+    sSel.appendChild(o);
+  }
+  const start = (peStartTouched && prev >= 1 && prev <= maxStart) ? prev : Math.min(dateQ, maxStart);
+  sSel.value = start;
+  wrap.classList.toggle('hidden', n === 4);
+
+  const fy = date ? payFyLabel(date) : '';
+  const covers = n === 4 ? `Complete financial year ${fy}`
+               : n === 1 ? `${PAY_Q_NAMES[start]} of FY ${fy}`
+               : `Q${start}–Q${start + n - 1} of FY ${fy}`;
+  const amt = parseFloat(document.getElementById('pe-amount').value) || 0;
+  const limit = payQuarterFee() * n;
+  const span = n === 1 ? '1 quarter' : n === 4 ? 'the complete financial year' : `${n} quarters`;
+  if (amt > limit) {
+    hint.style.color = 'var(--amber)';
+    hint.textContent = `Covers ${covers}. Rs. ${amt.toLocaleString('en-IN')} is more than the Rs. ${limit.toLocaleString('en-IN')} due for ${span}, so it will be recorded as "Payment of previous dues". If it pays for more quarters, increase the duration.`;
+  } else {
+    hint.style.color = 'var(--text2)';
+    hint.textContent = `Covers ${covers}.`;
+  }
+}
+// Shows or hides the "not recorded" choice used when editing older entries.
+function setLegacyDurationOption(show) {
+  const dSel = document.getElementById('pe-duration');
+  const existing = dSel.querySelector('option[value="legacy"]');
+  if (show && !existing) {
+    const o = document.createElement('option');
+    o.value = 'legacy'; o.textContent = 'Not recorded (older entry)';
+    dSel.insertBefore(o, dSel.firstChild);
+  } else if (!show && existing) {
+    existing.remove();
+  }
 }
 
 // Split a house number into its block letters and unit number: "Kingston - 05" -> {block:'KINGSTON', num:5}
@@ -5978,6 +6153,7 @@ function fillOwnerFromHouse() {
       hint.style.color = 'var(--red)';
     }
   }
+  updatePaymentDuration();
 }
 
 async function openAddPaymentModal() {
@@ -5985,7 +6161,7 @@ async function openAddPaymentModal() {
   populateHouseSuggestions();
   currentEditLedgerId = null;
   document.getElementById('pe-modal-title').textContent = 'Add Payment';
-  document.getElementById('pe-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('pe-date').value = localISODate();
   document.getElementById('pe-amount').value = '';
   document.getElementById('pe-name').value = '';
   document.getElementById('pe-house').value = '';
@@ -5994,6 +6170,10 @@ async function openAddPaymentModal() {
   document.getElementById('pe-billbook').value = '';
   document.getElementById('pe-receipt').value = '';
   const hint = document.getElementById('pe-owner-hint'); if (hint) hint.textContent = '';
+  setLegacyDurationOption(false);
+  document.getElementById('pe-duration').value = '1';     // default: 1 quarter, matching the date
+  peStartTouched = false;
+  updatePaymentDuration();
   document.getElementById('pe-error').classList.add('hidden');
   document.getElementById('payment-entry-modal').classList.remove('hidden');
 }
@@ -6014,6 +6194,19 @@ async function openEditPaymentModal(id) {
   document.getElementById('pe-billbook').value = p.bill_book_number || '';
   document.getElementById('pe-receipt').value = p.receipt_number || '';
   fillOwnerFromHouse();  // re-map name from current members list
+  if (p.quarters_covered) {
+    setLegacyDurationOption(false);
+    document.getElementById('pe-duration').value = String(p.quarters_covered);
+    peStartTouched = false;
+    updatePaymentDuration();                               // rebuild the quarter list
+    document.getElementById('pe-start-q').value = String(p.start_quarter || 1);
+    peStartTouched = true;
+  } else {
+    setLegacyDurationOption(true);
+    document.getElementById('pe-duration').value = 'legacy';
+    peStartTouched = false;
+  }
+  updatePaymentDuration();
   document.getElementById('pe-error').classList.add('hidden');
   document.getElementById('payment-entry-modal').classList.remove('hidden');
 }
@@ -6038,6 +6231,13 @@ async function submitPaymentEntry() {
     billBookNumber: document.getElementById('pe-billbook').value.trim() || null,
     receiptNumber:  document.getElementById('pe-receipt').value.trim() || null,
   };
+  const durVal = document.getElementById('pe-duration').value;
+  if (durVal === 'legacy') {
+    body.quartersCovered = null; body.startQuarter = null;       // keep "not recorded"
+  } else {
+    body.quartersCovered = parseInt(durVal, 10);
+    body.startQuarter = body.quartersCovered === 4 ? 1 : parseInt(document.getElementById('pe-start-q').value, 10);
+  }
 
   if (!body.paymentDate || !body.houseNumber || isNaN(body.amount)) {
     err.textContent = 'House number, date, and amount are required.';
@@ -6173,24 +6373,189 @@ function handleLedgerImportFile(input) {
 }
 
 // Export all ledger entries to CSV
+/* ════════════════════════════════════════════════════════
+   LEDGER CSV EXPORT — choose what, and for which period
+   Period: complete financial year, Quarter 1-4 of a FY, or a custom date range.
+   What:   the payment entries, or a paid / unpaid list by house.
+   ════════════════════════════════════════════════════════ */
+const EXPORT_QUARTERLY_FEE = { home: 4000, shop: 750 };   // Rs. per quarter
+const EXPORT_PERIOD_NAMES  = { fy: 'Full year', q1: 'Q1 (Apr–Jun)', q2: 'Q2 (Jul–Sep)', q3: 'Q3 (Oct–Dec)', q4: 'Q4 (Jan–Mar)' };
+
+function exportDateLabel(iso) {
+  if (!iso) return '';
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+// Opens the export dialog (the "Export CSV" button calls this).
 async function exportLedgerCSV() {
+  if (!members || members.length === 0) { try { await loadMembers(); } catch (e) {} }
+  const fySel = document.getElementById('ex-fy');
+  const now = new Date();
+  const curFy = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  if (fySel.options.length === 0) {
+    for (let y = curFy; y >= 2018; y--) {
+      const o = document.createElement('option');
+      o.value = y; o.textContent = `FY ${y}-${String(y + 1).slice(-2)}`;
+      fySel.appendChild(o);
+    }
+  }
+  fySel.value = curFy;
+  document.getElementById('ex-kind').value   = 'payments';
+  document.getElementById('ex-period').value = 'fy';
+  document.getElementById('ex-status').value = 'all';
+  const today = now.toISOString().split('T')[0];
+  document.getElementById('ex-from').value = `${curFy}-04-01`;
+  document.getElementById('ex-to').value   = today;
+  document.getElementById('ex-error').classList.add('hidden');
+  updateExportDialog();
+  document.getElementById('export-modal').classList.remove('hidden');
+}
+
+function closeExportModal() {
+  document.getElementById('export-modal').classList.add('hidden');
+}
+
+// Works out the date range for the current dialog choices.
+function exportRange() {
+  const period = document.getElementById('ex-period').value;
+  if (period === 'custom') {
+    const start = document.getElementById('ex-from').value;
+    const end   = document.getElementById('ex-to').value;
+    if (!start || !end) return { error: 'Choose both a From and a To date.' };
+    if (start > end)    return { error: 'The From date must be on or before the To date.' };
+    return { period, start, end, fyStart: null, n: null, label: `${exportDateLabel(start)} – ${exportDateLabel(end)}`, fileTag: `${start}_to_${end}` };
+  }
+  const fy = parseInt(document.getElementById('ex-fy').value);
+  const spans = {
+    fy: [`${fy}-04-01`,     `${fy + 1}-03-31`, 4],
+    q1: [`${fy}-04-01`,     `${fy}-06-30`,     1],
+    q2: [`${fy}-07-01`,     `${fy}-09-30`,     2],
+    q3: [`${fy}-10-01`,     `${fy}-12-31`,     3],
+    q4: [`${fy + 1}-01-01`, `${fy + 1}-03-31`, 4],
+  };
+  const [start, end, n] = spans[period];
+  const fyLabel = `FY ${fy}-${String(fy + 1).slice(-2)}`;
+  return {
+    period, start, end, fyStart: fy, n,
+    label: `${fyLabel} · ${EXPORT_PERIOD_NAMES[period]}`,
+    fileTag: `FY${fy}-${String(fy + 1).slice(-2)}` + (period === 'fy' ? '' : '_' + period.toUpperCase()),
+  };
+}
+
+// Shows/hides the right controls and explains how the list is worked out.
+function updateExportDialog() {
+  const kind   = document.getElementById('ex-kind').value;
+  const period = document.getElementById('ex-period').value;
+  const custom = period === 'custom';
+  document.getElementById('ex-fy-wrap').classList.toggle('hidden', custom);
+  document.getElementById('ex-custom-wrap').classList.toggle('hidden', !custom);
+  document.getElementById('ex-status-wrap').classList.toggle('hidden', kind !== 'status');
+
+  const r = exportRange();
+  document.getElementById('ex-preview').textContent = r.error ? '' : `${exportDateLabel(r.start)} – ${exportDateLabel(r.end)}`;
+
+  const hint = document.getElementById('ex-hint');
+  if (kind === 'payments') {
+    hint.textContent = 'One row per payment received in this period, with the owner name taken from the members list.';
+  } else if (custom) {
+    hint.textContent = 'A house is Paid if it has at least one payment in this date range, otherwise Unpaid.';
+  } else {
+    hint.textContent = 'Each house is compared with what it owes up to the end of this period (homes Rs. 4,000 and shops Rs. 750 per quarter), counting everything paid since 1 April of the financial year. Paid = fully covered, Partly paid = some paid, Unpaid = nothing paid.';
+  }
+}
+
+async function runLedgerExport() {
+  const err = document.getElementById('ex-error');
+  const btn = document.getElementById('ex-submit-btn');
+  err.classList.add('hidden');
+  const r = exportRange();
+  if (r.error) { err.textContent = r.error; err.classList.remove('hidden'); return; }
+  const kind = document.getElementById('ex-kind').value;
+
+  btn.disabled = true; btn.textContent = 'Preparing…';
   try {
-    const rows = await apiRequest('/api/ledger');
-    const headers = ['Date','Name','House No.','Description','Amount','Payment Mode','Bill Book No.','Receipt No.'];
-    const csvRows = rows.map(p => [
-      p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '',
-      p.payer_name || '',
-      p.house_number || '',
-      p.description || '',
-      parseFloat(p.amount || 0).toFixed(2),
-      LEDGER_MODE_LABELS[p.payment_mode] || p.payment_mode || '',
-      p.bill_book_number || '',
-      p.receipt_number || '',
-    ]);
-    const today = new Date().toISOString().split('T')[0];
-    downloadCSV(`KGC_Payments_${today}.csv`, headers, csvRows);
-  } catch (err) {
-    alert('Export failed: ' + err.message);
+    if (kind === 'payments') {
+      const rows = await apiRequest(`/api/ledger?from=${r.start}&to=${r.end}`);
+      if (rows.length === 0) { err.textContent = 'No payments were recorded in this period.'; err.classList.remove('hidden'); return; }
+      const headers = ['Date','Owner Name','House No.','Description','Amount','Payment Mode','Bill Book No.','Receipt No.','Covers','Remark'];
+      const csvRows = rows.map(p => [
+        p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '',
+        p.payer_name || '',
+        p.house_number || '',
+        p.description || '',
+        parseFloat(p.amount || 0).toFixed(2),
+        LEDGER_MODE_LABELS[p.payment_mode] || p.payment_mode || '',
+        p.bill_book_number || '',
+        p.receipt_number || '',
+        (p.quarters_covered && p.start_quarter) ? `${payCoversText(p.quarters_covered, p.start_quarter)} (FY ${p.financial_year})` : '',
+        p.remark || '',
+      ]);
+      downloadCSV(`KGC_Payments_${r.fileTag}.csv`, headers, csvRows);
+      closeExportModal();
+      showToast(`Exported ${rows.length} payment${rows.length === 1 ? '' : 's'}.`, 'ok');
+      return;
+    }
+
+    // ── Paid & unpaid list, one row per active member ──
+    // For a quarter/FY we need every payment from 1 April of the FY up to the period end.
+    const fetchFrom = r.fyStart !== null ? `${r.fyStart}-04-01` : r.start;
+    const rows = await apiRequest(`/api/ledger?from=${fetchFrom}&to=${r.end}`);
+    const by = new Map();   // member id -> totals
+    let unmatched = 0;
+    rows.forEach(p => {
+      const d = String(p.payment_date || '').slice(0, 10);
+      if (p.member_id === null || p.member_id === undefined) {
+        if (d >= r.start && d <= r.end) unmatched++;
+        return;
+      }
+      const k = String(p.member_id);
+      const t = by.get(k) || { toDate: 0, inPeriod: 0, count: 0, last: '' };
+      const amt = parseFloat(p.amount || 0);
+      t.toDate += amt;
+      if (d >= r.start && d <= r.end) { t.inPeriod += amt; t.count++; }
+      if (d && d > t.last) t.last = d;
+      by.set(k, t);
+    });
+
+    const statusFilter = document.getElementById('ex-status').value;
+    const fmt = n => n.toFixed(2);
+    const list = members.filter(m => m.isActive !== false)
+      .sort((a, b) => compareHouseNumbers(a.house, b.house))
+      .map(m => {
+        const t = by.get(String(m.id)) || { toDate: 0, inPeriod: 0, count: 0, last: '' };
+        let status, cells;
+        if (r.fyStart !== null) {
+          const fee = m.type === 'shop' ? EXPORT_QUARTERLY_FEE.shop : EXPORT_QUARTERLY_FEE.home;
+          const due = fee * r.n;
+          status = t.toDate >= due ? 'Paid' : (t.toDate > 0 ? 'Partly paid' : 'Unpaid');
+          cells = [m.house, m.name, getTypeShortLabel(m.type), EXPORT_PERIOD_NAMES[r.period],
+                   fmt(due), fmt(t.inPeriod), fmt(t.toDate), fmt(Math.max(due - t.toDate, 0)),
+                   status, t.last ? exportDateLabel(t.last) : ''];
+        } else {
+          status = t.inPeriod > 0 ? 'Paid' : 'Unpaid';
+          cells = [m.house, m.name, getTypeShortLabel(m.type), fmt(t.inPeriod), t.count,
+                   status, t.last ? exportDateLabel(t.last) : ''];
+        }
+        return { status, cells };
+      })
+      .filter(x => statusFilter === 'all' || (statusFilter === 'paid' ? x.status === 'Paid' : x.status !== 'Paid'));
+
+    if (list.length === 0) { err.textContent = 'No houses match this selection.'; err.classList.remove('hidden'); return; }
+    const headers = r.fyStart !== null
+      ? ['House No.','Owner Name','Unit Type','Period','Due till period end (Rs.)','Paid in period (Rs.)','Paid since 1 April (Rs.)','Balance (Rs.)','Status','Last payment']
+      : ['House No.','Owner Name','Unit Type','Paid in range (Rs.)','No. of payments','Status','Last payment'];
+    const suffix = statusFilter === 'all' ? '' : (statusFilter === 'paid' ? '_PaidOnly' : '_UnpaidOnly');
+    downloadCSV(`KGC_PaidUnpaid_${r.fileTag}${suffix}.csv`, headers, list.map(x => x.cells));
+    closeExportModal();
+    showToast(`Exported ${list.length} house${list.length === 1 ? '' : 's'}.`, 'ok');
+    if (unmatched > 0) {
+      setTimeout(() => showToast(`${unmatched} payment${unmatched === 1 ? '' : 's'} in this period could not be matched to a member (check the house number) and ${unmatched === 1 ? 'is' : 'are'} not counted.`, 'err'), 400);
+    }
+  } catch (e) {
+    err.textContent = 'Export failed: ' + (e.message || 'please try again.');
+    err.classList.remove('hidden');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Download CSV';
   }
 }
 
@@ -7011,7 +7376,15 @@ window.addEventListener('resize', () => {
     'Maintenance Payments':'मेंटेनेंस भुगतान',
     'Record of maintenance payments received, month by month':'माह-दर-माह प्राप्त मेंटेनेंस भुगतानों का रिकॉर्ड',
     '+ Add Payment':'+ भुगतान जोड़ें', 'Add Payment':'भुगतान जोड़ें', 'Edit Payment':'भुगतान संपादित करें',
-    'Monthly Collections':'मासिक संग्रह', 'Import Payments from Excel':'एक्सेल से भुगतान इंपोर्ट करें',
+    'Monthly Collections':'मासिक संग्रह',
+    'Duration':'अवधि', 'Starting quarter':'शुरुआती तिमाही', '1 quarter':'1 तिमाही', '2 quarters':'2 तिमाही', '3 quarters':'3 तिमाही',
+    'Covers':'अवधि कवर', 'Full year':'पूरा वर्ष', 'Not recorded (older entry)':'दर्ज नहीं (पुरानी प्रविष्टि)',
+    'Export CSV':'CSV निर्यात करें', 'What to export':'क्या निर्यात करना है', 'Payments received (list of entries)':'प्राप्त भुगतान (प्रविष्टियों की सूची)',
+    'Paid & unpaid list (by house)':'भुगतान किए व बकाया की सूची (मकान अनुसार)', 'Period':'अवधि', 'Complete financial year':'पूरा वित्तीय वर्ष',
+    'Quarter 1 (Apr–Jun)':'तिमाही 1 (अप्रैल–जून)', 'Quarter 2 (Jul–Sep)':'तिमाही 2 (जुलाई–सितंबर)', 'Quarter 3 (Oct–Dec)':'तिमाही 3 (अक्टूबर–दिसंबर)',
+    'Quarter 4 (Jan–Mar)':'तिमाही 4 (जनवरी–मार्च)', 'Custom date range':'अपनी तिथि सीमा', 'Financial year':'वित्तीय वर्ष', 'From':'से', 'To':'तक', 'Show':'दिखाएँ',
+    'All houses (with Paid / Unpaid status)':'सभी मकान (भुगतान / बकाया स्थिति सहित)', 'Paid only':'केवल भुगतान किए', 'Unpaid & part-paid only':'केवल बकाया व आंशिक भुगतान',
+    'Download CSV':'CSV डाउनलोड करें', 'Import Payments from Excel':'एक्सेल से भुगतान इंपोर्ट करें',
     'Dues & Penalties':'बकाया और जुर्माना', 'Quarterly Dues':'त्रैमासिक बकाया',
     'Residents With Dues':'बकाया वाले निवासी', 'Total Maintenance Due':'कुल मेंटेनेंस बकाया',
     'Total Penalties':'कुल जुर्माना', 'Total Outstanding':'कुल बकाया',
