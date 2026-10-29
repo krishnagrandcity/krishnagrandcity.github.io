@@ -1010,7 +1010,7 @@ window.showToast = function (message, type) {
           </div>
           <!-- Only President and Secretary can add members -->
           <div style="display:flex;gap:8px;">
-            <button class="btn-add" style="background:#fff;border:1px solid var(--border);color:var(--navy);" onclick="openImportModal()">📤 Import from Excel</button>
+            <button class="btn-add write-only" style="background:#fff;border:1px solid var(--border);color:var(--navy);" onclick="openImportModal()">📤 Import from Excel</button>
             <button class="btn-add btn-gold" id="btn-add-member" onclick="openAddModal()">+ Add New Member</button>
           </div>
         </div>
@@ -1087,7 +1087,7 @@ window.showToast = function (message, type) {
             <p class="page-sub">Record society expenses and view financial summaries</p>
           </div>
           <!-- Upload xlsx button -->
-          <button class="btn-add" onclick="toggleFinanceUpload()" style="background:var(--surface);color:var(--navy);border:1px solid var(--border2);">
+          <button class="btn-add write-only" onclick="toggleFinanceUpload()" style="background:var(--surface);color:var(--navy);border:1px solid var(--border2);">
             ⬆ Import Expenses (XLSX)
           </button>
         </div>
@@ -1135,7 +1135,7 @@ window.showToast = function (message, type) {
         </div>
 
         <!-- ── ADD EXPENSE FORM ── -->
-        <div class="info-section" style="margin-bottom:20px;">
+        <div class="info-section write-only" style="margin-bottom:20px;">
           <h3 style="margin-bottom:18px;">Record New Expense</h3>
 
           <div class="form-row">
@@ -3382,8 +3382,9 @@ function applyPermissions() {
   document.getElementById('sb-notices').classList.toggle('perm-hidden', false);
 
   // ── Admin + manager only (not committee) ──
-  document.getElementById('sb-bills').classList.toggle('perm-hidden',    !(admin || manager));
-  document.getElementById('sb-finances').classList.toggle('perm-hidden', !(admin || manager));
+  // (committee gets read-only views of both; write controls are .write-only)
+  document.getElementById('sb-bills').classList.toggle('perm-hidden',    !staff);
+  document.getElementById('sb-finances').classList.toggle('perm-hidden', !staff);
 
   // ── .admin-only elements: show for admin tier only (deletions, destructive actions) ──
   document.querySelectorAll('.admin-only').forEach(el =>
@@ -3414,7 +3415,7 @@ function showDash(view) {
   // Route guard — committee/resident tiers cannot open Members or Analytics; committee also can't open Notice Board
   // Committee can only access: notices, complaints, facilities
   // (they cannot see members list, bills, or finances)
-  const committeeOnly = ['notices', 'complaints', 'facilities'];
+  const committeeOnly = ['members', 'finances', 'bills', 'notices', 'complaints', 'facilities'];
   if (isCommittee() && !committeeOnly.includes(view)) view = 'notices';
 
   // Residents go to their own scoped views
@@ -3593,6 +3594,7 @@ function searchMembers(q) {
    If tenant, displays owner name in an amber banner.
    ════════════════════════════════════════════════════ */
 async function showMemberDetail(id) {
+  if (isCommittee()) return; // committee sees the members list only, not individual profiles
   currentDetailMemberId = id;
   const container = document.getElementById('detail-content');
   container.innerHTML = '<div style="padding:48px;text-align:center;color:var(--text2);">Loading…</div>';
