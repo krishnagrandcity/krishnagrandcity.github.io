@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- ═══════════════════════════════════════════════════
+     KRISHNA GRAND CITY SOCIETY — Admin Portal
+     File: krishna_grand_city_admin.html
+     Version: 2.0
+     Society: Krishna Grand City, Sheetala Colony, Kohka, Bhilai
+     ═══════════════════════════════════════════════════ -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in — Krishna Grand City Society</title>
+
+<!-- Installable web app (PWA): manifest, icons and phone-browser colours -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0f1f3d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="KGC" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<!-- Google Fonts: Libre Caslon Text (headings) + Hanken Grotesk (body) -->
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Hindi fonts: Rozha One (display/headings) + Noto Sans Devanagari (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="assets/app.css?v=572d214f" />
+</head>
+<body data-kind="public" data-page="login">
+<!-- Toast notifications host -->
+<div id="toast-wrap" aria-live="polite" aria-atomic="false"></div>
+<nav>
+  <div class="nav-left">
+  <button id="burger" class="burger no-translate" onclick="toggleMobileMenu()" aria-label="Open menu">&#9776;</button>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">
+      <!-- Society home icon -->
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="#0f1f3d"/>
+        <polyline points="9,22 9,12 15,12 15,22" fill="#0f1f3d"/>
+      </svg>
+    </div>
+    <span class="nav-brand">Krishna<span> Grand</span> City</span>
+  </div>
+  </div><!-- /nav-left -->
+  <div class="nav-links">
+    <button class="nav-btn" onclick="showPage('home')">Home</button>
+    <button class="nav-btn" onclick="showPage('about')">About</button>
+    <button class="nav-btn" id="nav-login-btn" onclick="showPage('login')">Admin Login</button>
+    <button class="nav-btn" id="nav-logout-btn" style="display:none" onclick="logout()">Logout</button>
+    <button class="nav-btn" id="nav-install-btn" onclick="kgcInstallApp()">Install app</button>
+    <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
+  </div>
+</nav>
+<div id="page-login">
+  <div class="login-page">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="login-icon">
+          <!-- Lock/key icon -->
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="#c9a84c">
+            <path d="M12 1a5 5 0 015 5 5 5 0 01-5 5 5 5 0 01-5-5 5 5 0 015-5m0 12c5.33 0 8 2.67 8 4v2H4v-2c0-1.33 2.67-4 8-4z"/>
+          </svg>
+        </div>
+        <h2>Admin Portal</h2>
+        <p>Krishna Grand City Society</p>
+      </div>
+      <!-- This now signs in against the real backend/database, not fake demo data. -->
+      <div class="login-hint">
+        <strong>Sign in with your email, phone number, or house number</strong> (e.g. <code>A-101</code>) and your password.
+      </div>
+      <div id="login-error" class="error-msg hidden">Incorrect login ID or password. Please try again.</div>
+      <div class="form-group">
+        <label class="form-label">Email, phone, or house number</label>
+        <input class="form-input" type="text" id="login-email" autocomplete="username" autocapitalize="off" spellcheck="false" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="pw-wrap">
+          <input class="form-input" type="password" id="login-password" placeholder="Enter your password" autocomplete="current-password" onkeydown="if(event.key==='Enter') doLogin()" />
+          <button type="button" class="pw-toggle" id="login-pw-toggle" onclick="togglePasswordVisibility('login-password', this)" aria-label="Show password" aria-pressed="false" title="Show password">
+            <svg class="pw-eye" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg class="pw-eye-off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.9 10.9 0 0112 19c-7 0-11-7-11-7a19.8 19.8 0 015.06-5.94M9.9 4.24A10.9 10.9 0 0112 4c7 0 11 7 11 7a19.9 19.9 0 01-3.17 4.19M14.12 14.12a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text3);margin:-6px 0 14px;">
+        Forgot your password? Contact your society office — a committee member or admin can reset it for you.
+      </p>
+      <button class="btn-full" id="login-submit-btn" onclick="doLogin()">Sign In →</button>
+    </div>
+  </div>
+</div>
+<!-- Mobile navigation drawer (populated on open) -->
+<div id="mobile-overlay" onclick="closeMobileMenu()"></div>
+<div id="mobile-menu" aria-label="Navigation menu"></div>
+
+
+
+<!-- Install banner + iPhone instructions -->
+<div id="install-banner" role="dialog" aria-label="Install the KGC app">
+  <img src="icon-192.png" alt="" />
+  <div class="ib-text"><b>Install the KGC app</b>Open it from your home screen, full screen.</div>
+  <button class="ib-go" onclick="kgcInstallApp()">Install</button>
+  <button class="ib-no" onclick="kgcDismissInstall()" aria-label="Not now">&times;</button>
+</div>
+
+<div class="modal-overlay hidden" id="install-help-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Install the KGC app</h2>
+      <button class="modal-close" onclick="closeInstallHelp()">&times;</button>
+    </div>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:8px;" id="install-help-intro">On iPhone and iPad, install it from Safari:</p>
+    <ol class="install-steps" id="install-help-steps">
+      <li>Tap the <b>Share</b> button at the bottom of Safari.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The KGC icon now opens the app full screen.</li>
+    </ol>
+    <div class="modal-actions"><button class="btn-add btn-gold" onclick="closeInstallHelp()">Got it</button></div>
+  </div>
+</div>
+
+<script src="assets/app.js?v=572d214f"></script>
+</body>
+</html>

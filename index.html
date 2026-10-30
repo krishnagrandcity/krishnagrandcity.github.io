@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- ═══════════════════════════════════════════════════
+     KRISHNA GRAND CITY SOCIETY — Admin Portal
+     File: krishna_grand_city_admin.html
+     Version: 2.0
+     Society: Krishna Grand City, Sheetala Colony, Kohka, Bhilai
+     ═══════════════════════════════════════════════════ -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Krishna Grand City Society</title>
+
+<!-- Installable web app (PWA): manifest, icons and phone-browser colours -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0f1f3d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="KGC" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<!-- Google Fonts: Libre Caslon Text (headings) + Hanken Grotesk (body) -->
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Hindi fonts: Rozha One (display/headings) + Noto Sans Devanagari (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="assets/app.css?v=572d214f" />
+</head>
+<body data-kind="public" data-page="home">
+<!-- Toast notifications host -->
+<div id="toast-wrap" aria-live="polite" aria-atomic="false"></div>
+<nav>
+  <div class="nav-left">
+  <button id="burger" class="burger no-translate" onclick="toggleMobileMenu()" aria-label="Open menu">&#9776;</button>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">
+      <!-- Society home icon -->
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="#0f1f3d"/>
+        <polyline points="9,22 9,12 15,12 15,22" fill="#0f1f3d"/>
+      </svg>
+    </div>
+    <span class="nav-brand">Krishna<span> Grand</span> City</span>
+  </div>
+  </div><!-- /nav-left -->
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="showPage('home')">Home</button>
+    <button class="nav-btn" onclick="showPage('about')">About</button>
+    <button class="nav-btn" id="nav-login-btn" onclick="showPage('login')">Admin Login</button>
+    <button class="nav-btn" id="nav-logout-btn" style="display:none" onclick="logout()">Logout</button>
+    <button class="nav-btn" id="nav-install-btn" onclick="kgcInstallApp()">Install app</button>
+    <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
+  </div>
+</nav>
+<div id="page-home">
+  <!-- Hero banner -->
+  <div class="hero">
+    <div class="hero-badge">Est. 2018 · Sheetala Colony, Kohka, Bhilai</div>
+    <h1>Your Community,<br /><span>Managed with Care</span></h1>
+    <p>A modern administrative platform for Krishna Grand City Society — transparent, efficient, and always at your service.</p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="showPage('login')">Admin Portal →</button>
+      <button class="btn-outline" onclick="showPage('about')">Learn More</button>
+    </div>
+  </div>
+
+  <!-- Stats bar removed -->
+
+  <!-- Feature highlights grid -->
+  <div class="section">
+    <div class="section-label">Why KGC-Admin</div>
+    <h2 class="section-title">Everything your society needs,<br />in one place.</h2>
+    <p class="section-sub">From maintenance tracking to member records — our admin portal gives committee members full visibility and control.</p>
+    <div class="feature-grid">
+      <div class="feature-card"><div class="feat-icon">👥</div><div class="feat-title">Member Directory</div><div class="feat-desc">Detailed profiles for all residents — categorized by unit type with contact details and payment history.</div></div>
+      <div class="feature-card"><div class="feat-icon">💰</div><div class="feat-title">Maintenance Tracking</div><div class="feat-desc">Monitor payment status in real-time. Identify defaulters instantly and send reminders directly from the portal.</div></div>
+      <div class="feature-card"><div class="feat-icon">📊</div><div class="feat-title">Analytics Dashboard</div><div class="feat-desc">Visual reports on collections, occupancy, expense categories and year-over-year trends.</div></div>
+      <div class="feature-card"><div class="feat-icon">🔒</div><div class="feat-title">Secure Access</div><div class="feat-desc">Role-based login for committee members. Your data stays protected with modern authentication.</div></div>
+      <div class="feature-card"><div class="feat-icon">📣</div><div class="feat-title">Notice Board</div><div class="feat-desc">Publish announcements and circulars to residents from a single admin interface.</div></div>
+      <div class="feature-card"><div class="feat-icon">🏗️</div><div class="feat-title">Facility Management</div><div class="feat-desc">Track maintenance requests, vendor contracts and common area bookings with ease.</div></div>
+    </div>
+  </div>
+  <div class="footer">© 2025 <span>Sainaath Ramesh Iyer</span> · All rights reserved</div>
+</div>
+<!-- Mobile navigation drawer (populated on open) -->
+<div id="mobile-overlay" onclick="closeMobileMenu()"></div>
+<div id="mobile-menu" aria-label="Navigation menu"></div>
+
+
+
+<!-- Install banner + iPhone instructions -->
+<div id="install-banner" role="dialog" aria-label="Install the KGC app">
+  <img src="icon-192.png" alt="" />
+  <div class="ib-text"><b>Install the KGC app</b>Open it from your home screen, full screen.</div>
+  <button class="ib-go" onclick="kgcInstallApp()">Install</button>
+  <button class="ib-no" onclick="kgcDismissInstall()" aria-label="Not now">&times;</button>
+</div>
+
+<div class="modal-overlay hidden" id="install-help-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Install the KGC app</h2>
+      <button class="modal-close" onclick="closeInstallHelp()">&times;</button>
+    </div>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:8px;" id="install-help-intro">On iPhone and iPad, install it from Safari:</p>
+    <ol class="install-steps" id="install-help-steps">
+      <li>Tap the <b>Share</b> button at the bottom of Safari.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The KGC icon now opens the app full screen.</li>
+    </ol>
+    <div class="modal-actions"><button class="btn-add btn-gold" onclick="closeInstallHelp()">Got it</button></div>
+  </div>
+</div>
+
+<script src="assets/app.js?v=572d214f"></script>
+</body>
+</html>

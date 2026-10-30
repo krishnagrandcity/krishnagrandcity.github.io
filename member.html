@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- ═══════════════════════════════════════════════════
+     KRISHNA GRAND CITY SOCIETY — Admin Portal
+     File: krishna_grand_city_admin.html
+     Version: 2.0
+     Society: Krishna Grand City, Sheetala Colony, Kohka, Bhilai
+     ═══════════════════════════════════════════════════ -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KGC Admin — Member profile</title>
+
+<!-- Installable web app (PWA): manifest, icons and phone-browser colours -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0f1f3d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="KGC" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<!-- Google Fonts: Libre Caslon Text (headings) + Hanken Grotesk (body) -->
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Hindi fonts: Rozha One (display/headings) + Noto Sans Devanagari (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="assets/app.css?v=572d214f" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body data-kind="dash" data-view="detail" data-page="detail">
+<!-- Toast notifications host -->
+<div id="toast-wrap" aria-live="polite" aria-atomic="false"></div>
+<nav>
+  <div class="nav-left">
+  <button id="burger" class="burger no-translate" onclick="toggleMobileMenu()" aria-label="Open menu">&#9776;</button>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">
+      <!-- Society home icon -->
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="#0f1f3d"/>
+        <polyline points="9,22 9,12 15,12 15,22" fill="#0f1f3d"/>
+      </svg>
+    </div>
+    <span class="nav-brand">Krishna<span> Grand</span> City</span>
+  </div>
+  </div><!-- /nav-left -->
+  <div class="nav-links">
+    <button class="nav-btn" onclick="showPage('home')">Home</button>
+    <button class="nav-btn" onclick="showPage('about')">About</button>
+    <button class="nav-btn" id="nav-login-btn" onclick="showPage('login')">Admin Login</button>
+    <button class="nav-btn" id="nav-logout-btn" style="display:none" onclick="logout()">Logout</button>
+    <button class="nav-btn" id="nav-install-btn" onclick="kgcInstallApp()">Install app</button>
+    <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
+  </div>
+</nav>
+<div id="page-dashboard">
+  <div class="dash-layout">
+
+    <!-- ── SIDEBAR NAVIGATION ── -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Main</div>
+        <!-- Members section button — admin & committee tiers only -->
+        <button class="sb-btn active" id="sb-members" onclick="showDash('members')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Members
+        </button>
+        <!-- My Profile / Home button — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-myprofile" onclick="showDash('resident-home')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          My Profile
+        </button>
+        <!-- My Bills — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-res-bills" onclick="showDash('res-bills')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          My Bills
+        </button>
+        <!-- My Complaints — resident tier only -->
+        <button class="sb-btn perm-hidden" id="sb-res-complaints" onclick="showDash('res-complaints')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          My Complaints
+        </button>
+        <!-- Analytics section button — admin tier only -->
+        <button class="sb-btn" id="sb-finances" onclick="showDash('finances')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          Finances
+        </button>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Management</div>
+        <!-- Notice Board button -->
+        <button class="sb-btn" id="sb-notices" onclick="showDash('notices')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Notice Board
+        </button>
+        <!-- Complaints button -->
+        <button class="sb-btn" id="sb-complaints" onclick="showDash('complaints')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Complaints
+        </button>
+        <!-- Bills button -->
+        <button class="sb-btn" id="sb-bills" onclick="showDash('bills')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          Maintenance Bills
+        </button>
+        <!-- Facilities button -->
+        <button class="sb-btn" id="sb-facilities" onclick="showDash('facilities')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Facilities
+        </button>
+      </div>
+      <!-- Logged-in user info panel at sidebar bottom -->
+      <div class="sb-user">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="sb-avatar" id="sb-avatar-initials">RS</div>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:#fff;" id="sb-user-name">Rajiv Sharma</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.45);" id="sb-user-role">President</div>
+          </div>
+        </div>
+        <button type="button" onclick="openChangePasswordModal()"
+                style="margin-top:10px;width:100%;background:none;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.65);font-size:11px;padding:6px 8px;border-radius:6px;cursor:pointer;">
+          🔒 Change Password
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── CHANGE PASSWORD MODAL ── -->
+    <div id="change-password-modal" class="hidden" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:999;display:flex;align-items:center;justify-content:center;">
+      <div style="background:var(--bg-card, #fff);border-radius:12px;padding:28px;width:340px;max-width:90vw;">
+        <h3 style="margin:0 0 14px;">Change Password</h3>
+        <div id="cp-error" class="error-msg hidden" style="margin-bottom:10px;"></div>
+        <div id="cp-success" class="hidden" style="margin-bottom:10px;color:#1a7a3c;font-size:13px;"></div>
+        <div class="form-group">
+          <label class="form-label">Current password</label>
+          <input class="form-input" type="password" id="cp-current" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">New password (min. 8 characters)</label>
+          <input class="form-input" type="password" id="cp-new" />
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px;">
+          <button class="btn-full" id="cp-submit-btn" onclick="submitChangePassword()">Update Password</button>
+          <button type="button" onclick="closeChangePasswordModal()"
+                  style="background:none;border:1px solid #ccc;border-radius:8px;padding:0 16px;cursor:pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MAIN CONTENT AREA ── -->
+    <main class="dash-main">
+
+      <!-- ══════════════════════════════
+           MEMBER DETAIL VIEW
+           Individual resident profile page
+           ══════════════════════════════ -->
+      <div id="dash-detail">
+        <button class="detail-back admin-only" id="detail-back-btn" onclick="showDash('members')">← Back to Members</button>
+        <div class="detail-grid" id="detail-content"></div>
+      </div>
+
+      <!-- ── VIEW BILL PAYMENTS MODAL (committee/admin side download access) ── -->
+      <div class="modal-overlay hidden" id="bill-payments-modal">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 class="modal-title">Payment History</h2>
+            <button class="modal-close" onclick="closeBillPaymentsModal()">✕</button>
+          </div>
+          <div id="bill-payments-content" style="max-height:360px;overflow-y:auto;"></div>
+          <div class="modal-actions">
+            <button class="btn-add btn-gold" onclick="closeBillPaymentsModal()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── GENERATE BILLS MODAL ── -->
+      <div class="modal-overlay hidden" id="generate-bills-modal">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 class="modal-title">Generate Monthly Bills</h2>
+            <button class="modal-close" onclick="closeGenerateBillsModal()">✕</button>
+          </div>
+          <p style="font-size:13px;color:var(--text2);margin-bottom:14px;">
+            Creates one bill for every active member, using their unit type's current rate.
+            Members who already have a bill for this month are automatically skipped — safe to run more than once.
+          </p>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Billing Month *</label>
+              <input class="form-input" id="gb-month" type="month" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Financial Year *</label>
+              <select class="form-select" id="gb-fy">
+                <!-- Populated by populateFYDropdown() — spans 100 years -->
+              </select>
+            </div>
+          </div>
+          <div id="gb-error" class="error-msg hidden"></div>
+          <div id="gb-result" class="hidden" style="font-size:14px;background:var(--surface2);padding:12px;border-radius:8px;margin-top:8px;"></div>
+          <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeGenerateBillsModal()">Close</button>
+            <button class="btn-add btn-gold" id="gb-submit-btn" onclick="submitGenerateBills()">Generate</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── RECORD PAYMENT MODAL ── -->
+      <div class="modal-overlay hidden" id="payment-modal">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h2 class="modal-title">Record Payment</h2>
+            <button class="modal-close" onclick="closePaymentModal()">✕</button>
+          </div>
+          <p id="pay-bill-summary" style="font-size:13px;color:var(--text2);margin-bottom:14px;"></p>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Amount Paid (₹) *</label>
+              <input class="form-input" id="pay-amount" type="number" min="0" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Payment Date</label>
+              <input class="form-input" id="pay-date" type="date" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Payment Mode *</label>
+            <select class="form-select" id="pay-mode" onchange="onPaymentModeChange()">
+              <option value="cash">Cash</option>
+              <option value="cheque">Cheque</option>
+              <option value="online_upi">UPI</option>
+              <option value="online_neft">Bank Transfer — NEFT</option>
+              <option value="online_imps">Bank Transfer — IMPS</option>
+              <option value="online_rtgs">Bank Transfer — RTGS</option>
+              <option value="demand_draft">Demand Draft</option>
+            </select>
+          </div>
+
+          <!-- Manual bill/receipt tracking — always available, independent of payment mode.
+               Useful when your society still keeps a physical bill book alongside the digital records. -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bill No. (manual receipt number)</label>
+              <input class="form-input" id="pay-receipt-manual" placeholder="e.g. 00456" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bill Book No.</label>
+              <input class="form-input" id="pay-bill-book" placeholder="e.g. BB-12" />
+            </div>
+          </div>
+
+          <!-- Cheque-specific fields -->
+          <div id="pay-fields-cheque" class="hidden">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Cheque Number *</label><input class="form-input" id="pay-cheque-number" /></div>
+              <div class="form-group"><label class="form-label">Cheque Date *</label><input class="form-input" id="pay-cheque-date" type="date" /></div>
+            </div>
+            <div class="form-group"><label class="form-label">Bank Name</label><input class="form-input" id="pay-bank-name" /></div>
+          </div>
+
+          <!-- UPI-specific field -->
+          <div id="pay-fields-upi" class="hidden">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">UPI Transaction ID *</label><input class="form-input" id="pay-upi-txn" /></div>
+              <div class="form-group"><label class="form-label">UPI App</label><input class="form-input" id="pay-upi-app" placeholder="e.g. GPay, PhonePe" /></div>
+            </div>
+          </div>
+
+          <!-- Bank transfer (NEFT/IMPS/RTGS) fields -->
+          <div id="pay-fields-transfer" class="hidden">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">Bank Reference No. (UTR) *</label><input class="form-input" id="pay-bank-ref" /></div>
+              <div class="form-group"><label class="form-label">Bank Name</label><input class="form-input" id="pay-transfer-bank" /></div>
+            </div>
+          </div>
+
+          <!-- Demand draft fields -->
+          <div id="pay-fields-dd" class="hidden">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">DD Number</label><input class="form-input" id="pay-dd-number" /></div>
+              <div class="form-group"><label class="form-label">DD Date</label><input class="form-input" id="pay-dd-date" type="date" /></div>
+            </div>
+            <div class="form-group"><label class="form-label">DD Bank Name</label><input class="form-input" id="pay-dd-bank" /></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Remarks</label>
+            <input class="form-input" id="pay-remarks" placeholder="Optional note" />
+          </div>
+          <div id="pay-error" class="error-msg hidden"></div>
+          <div class="modal-actions">
+            <button class="btn-cancel" onclick="closePaymentModal()">Cancel</button>
+            <button class="btn-add btn-gold" id="pay-submit-btn" onclick="submitPayment()">Record Payment</button>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     ADD MEMBER MODAL
+     Includes owner photo upload, owner-name field for tenants
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="add-modal">
+  <div class="modal-box modal-box-lg">
+    <div class="modal-header">
+      <h2 class="modal-title" id="add-modal-title">Add New Member</h2>
+      <button class="modal-close" onclick="closeAddModal()">✕</button>
+    </div>
+
+    <!-- Owner photo upload -->
+    <div class="form-group">
+      <label class="form-label">Owner / Resident Photo</label>
+      <div class="img-upload-area" onclick="document.getElementById('f-photo-input').click()">
+        <img id="f-photo-preview" class="img-upload-preview" alt="Photo preview" />
+        <input type="file" id="f-photo-input" accept="image/*" onchange="previewPhoto(this)" style="display:none" />
+        <div id="f-upload-icon" style="font-size:28px;margin-bottom:8px;">📷</div>
+        <div class="img-upload-label">Click to upload photo</div>
+        <div class="img-upload-hint">JPG, PNG, WEBP · Max 2 MB</div>
+      </div>
+      <p style="font-size:11px;color:var(--text2);margin-top:4px;">Photo preview only for now — saving photos requires file storage setup, coming in a future step.</p>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Full Name *</label>
+        <input class="form-input" id="f-name" placeholder="e.g. Rahul Gupta" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">House Number *</label>
+        <input class="form-input" id="f-house" placeholder="e.g. Kingston - 05, Shop - 12" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Unit Type *</label>
+        <select class="form-select" id="f-type">
+          <option value="">Select type</option>
+          <option value="2bhk">2 BHK</option>
+          <option value="3bhk">3 BHK</option>
+          <option value="rowhouse">Row House</option>
+          <option value="shop">Shop</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone Number *</label>
+        <input class="form-input" id="f-phone" placeholder="e.g. 98765 43210" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input class="form-input" id="f-email" placeholder="email@example.com" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Vehicle Registration No.</label>
+      <input class="form-input" id="f-vehicle" placeholder="e.g. CG-07 AB 1234 (leave blank if none)" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Name</label>
+        <input class="form-input" id="f-emergency-name" placeholder="e.g. Ravi Krishnan" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Phone</label>
+        <input class="form-input" id="f-emergency-phone" placeholder="10-digit number" />
+      </div>
+    </div>
+    <div id="modal-error" class="error-msg hidden">Please fill in all required fields (Name, House No., Unit Type, Phone).</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="add-member-submit-btn" onclick="addMember()">Add Member</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     EDIT EXPENSE MODAL — admin/president/secretary/treasurer only
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="edit-expense-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Edit Expense</h2>
+      <button class="modal-close" onclick="closeEditExpenseModal()">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;" id="ee-voucher-label"></div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="ee-date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category *</label>
+        <select class="form-select" id="ee-category"></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description *</label>
+      <input class="form-input" id="ee-description" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Payee Name *</label>
+        <input class="form-input" id="ee-payee" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GST Number</label>
+        <input class="form-input" id="ee-gst-number" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Amount (₹) *</label>
+        <input class="form-input" type="number" id="ee-amount" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GST Amount (₹)</label>
+        <input class="form-input" type="number" id="ee-gst-amount" min="0" placeholder="0" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Bill Number</label>
+        <input class="form-input" id="ee-bill-number" placeholder="Optional" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method *</label>
+        <select class="form-select" id="ee-payment-mode">
+          <option value="cash">Cash</option>
+          <option value="cheque">Cheque</option>
+          <option value="online_upi">UPI</option>
+          <option value="online_neft">NEFT</option>
+          <option value="online_rtgs">RTGS</option>
+          <option value="demand_draft">Demand Draft</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="ee-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditExpenseModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="ee-submit-btn" onclick="submitEditExpense()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW EXPENSE DIALOG (opened from Finances ▸ New Record ▸ New Expense) -->
+<div class="modal-overlay hidden" id="expense-modal">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Record New Expense</h2>
+      <button class="modal-close" onclick="closeExpenseModal()">&times;</button>
+    </div>
+
+    <div class="form-row">
+      <!-- Date picker -->
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="fin-date" />
+      </div>
+      <!-- Category dropdown with "Add category" option -->
+      <div class="form-group">
+        <label class="form-label">Category *</label>
+        <div style="display:flex;gap:8px;">
+          <select class="form-select" id="fin-category" style="flex:1;">
+            <option value="">Select category</option>
+            <option value="Lift Maintenance">Lift Maintenance</option>
+            <option value="Labour Salary">Labour Salary</option>
+            <option value="Security Salary">Security Salary</option>
+            <option value="Housekeeping Salary">Housekeeping Salary</option>
+            <option value="Electricity">Electricity</option>
+            <option value="Water">Water</option>
+            <option value="Generator Maintenance">Generator Maintenance</option>
+            <option value="Plumbing Repairs">Plumbing Repairs</option>
+            <option value="Electrical Repairs">Electrical Repairs</option>
+            <option value="Pest Control">Pest Control</option>
+            <option value="Garden / Landscaping">Garden / Landscaping</option>
+            <option value="CCTV / Security System">CCTV / Security System</option>
+            <option value="Painting">Painting</option>
+            <option value="Stationery">Stationery</option>
+            <option value="Bank Charges">Bank Charges</option>
+            <option value="Audit Fees">Audit Fees</option>
+            <option value="Festival / Events">Festival / Events</option>
+            <option value="Others">Others</option>
+          </select>
+          <button class="btn-add" onclick="addFinanceCategory()" title="Add new category" style="padding:0 12px;flex-shrink:0;">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description *</label>
+      <input class="form-input" id="fin-description" placeholder="Brief description of the expense" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Payee Name *</label>
+        <input class="form-input" id="fin-payee" placeholder="Vendor / contractor name" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GST Number <span style="font-weight:400;color:var(--text2);">(optional)</span></label>
+        <input class="form-input" id="fin-gst-number" placeholder="e.g. 22AAAAA0000A1Z5" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Amount (₹) *</label>
+        <input class="form-input" type="number" id="fin-amount" placeholder="e.g. 12500" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">GST Amount (₹) <span style="font-weight:400;color:var(--text2);">(optional)</span></label>
+        <input class="form-input" type="number" id="fin-gst-amount" placeholder="e.g. 1125" min="0" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Bill Number <span style="font-weight:400;color:var(--text2);">(optional)</span></label>
+        <input class="form-input" id="fin-bill-number" placeholder="Vendor invoice / bill no." />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method *</label>
+        <select class="form-select" id="fin-payment-mode">
+          <option value="">Select method</option>
+          <option value="cash">Cash</option>
+          <option value="cheque">Cheque</option>
+          <option value="online_upi">UPI</option>
+          <option value="online_neft">NEFT</option>
+          <option value="online_rtgs">RTGS</option>
+          <option value="demand_draft">Demand Draft</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Auto-generated voucher number preview -->
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--text2);margin-bottom:16px;">
+      🧾 Voucher / Receipt No: <strong id="fin-voucher-preview" style="color:var(--navy);">Will be auto-generated on save (e.g. VCH-2026-0001)</strong>
+    </div>
+
+    <div id="fin-form-error" class="error-msg hidden"></div>
+    
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="resetFinanceForm()">Clear</button>
+      <button class="btn-add btn-gold" id="fin-submit-btn" onclick="submitExpense()">Save Expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW / EDIT RECEIVABLE DIALOG (Finances ▸ New Record ▸ New Receivable) -->
+<div class="modal-overlay hidden" id="receivable-modal">
+  <div class="modal-box" style="max-width:600px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="rv-title">Record New Receivable</h2>
+      <button class="modal-close" onclick="closeReceivableModal()">&times;</button>
+    </div>
+    <p style="font-size:12.5px;color:var(--text2);margin:-4px 0 14px;">For money the society receives other than maintenance (maintenance is recorded under Maintenance &rarr; Add Payment).</p>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="rv-date" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category *</label>
+        <select class="form-select" id="rv-category"><option value="">Select category</option><option value="Hall / Club House Booking">Hall / Club House Booking</option><option value="Facility Charges">Facility Charges</option><option value="Penalty / Late Fee">Penalty / Late Fee</option><option value="Donation">Donation</option><option value="Bank Interest">Bank Interest</option><option value="Advertisement / Hoarding">Advertisement / Hoarding</option><option value="Rent / Lease">Rent / Lease</option><option value="Event / Sponsorship">Event / Sponsorship</option><option value="Refund Received">Refund Received</option><option value="Others">Others</option></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description *</label>
+      <input class="form-input" id="rv-description" placeholder="What the money was received for" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">House / Unit No.</label>
+        <input class="form-input" id="rv-house" list="pe-house-list" autocomplete="off" oninput="fillReceivableFromHouse()" placeholder="Optional" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Received From *</label>
+        <input class="form-input" id="rv-payer" placeholder="Name of person / organisation" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Amount (₹) *</label>
+        <input class="form-input" type="number" id="rv-amount" min="0" placeholder="e.g. 2500" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Payment Method *</label>
+        <select class="form-select" id="rv-mode">
+          <option value="">Select method</option>
+          <option value="cash">Cash</option>
+          <option value="cheque">Cheque</option>
+          <option value="online_upi">UPI</option>
+          <option value="online_neft">NEFT</option>
+          <option value="online_rtgs">RTGS</option>
+          <option value="demand_draft">Demand Draft</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Reference No.</label>
+      <input class="form-input" id="rv-reference" placeholder="Cheque / UPI / transaction no. (optional)" />
+    </div>
+
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:13px;color:var(--text2);margin-bottom:16px;">
+      🧾 Receipt No: <strong id="rv-receipt-preview" style="color:var(--navy);">Will be auto-generated on save (e.g. RCV-2026-0001)</strong>
+    </div>
+
+    <div id="rv-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeReceivableModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="rv-submit-btn" onclick="submitReceivable()">Save Receivable</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSFER OWNERSHIP (house sold to a new owner) -->
+<div class="modal-overlay hidden" id="transfer-modal" onclick="if(event.target===this) closeTransferModal()">
+  <div class="modal-box" style="max-width:460px;" role="dialog" aria-modal="true" aria-labelledby="tf-title">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="tf-title">Transfer ownership</h2>
+        <div id="tf-sub" style="font-size:13px;color:var(--text2);margin-top:2px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeTransferModal()" aria-label="Close">&times;</button>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin:0 0 14px;">The current owner is marked inactive and keeps all their payments. The new owner is added to the same house, and new payments are recorded under them.</p>
+    <div class="form-group"><label class="form-label" for="tf-name">New owner's name *</label><input class="form-input" type="text" id="tf-name" autocomplete="off"></div>
+    <div class="form-group"><label class="form-label" for="tf-phone">Phone *</label><input class="form-input" type="tel" id="tf-phone" autocomplete="off"></div>
+    <div class="form-group"><label class="form-label" for="tf-email">Email</label><input class="form-input" type="email" id="tf-email" autocomplete="off"></div>
+    <div class="form-group"><label class="form-label" for="tf-note">Note</label><input class="form-input" type="text" id="tf-note" maxlength="300" placeholder="e.g. Sold in October 2026"></div>
+    <div id="tf-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-outline" onclick="closeTransferModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="tf-submit" onclick="submitTransfer()">Transfer ownership</button>
+    </div>
+  </div>
+</div>
+
+<!-- ROW DETAIL POPUP (click a payment / expense / receivable row) -->
+<div class="modal-overlay hidden" id="row-detail-modal" onclick="if(event.target===this) closeRowDetail()">
+  <div class="modal-box" style="max-width:440px;" role="dialog" aria-modal="true" aria-labelledby="rd-title">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="rd-title"></h2>
+        <div id="rd-sub" style="font-size:13px;color:var(--text2);margin-top:2px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeRowDetail()" aria-label="Close">&times;</button>
+    </div>
+    <dl class="rd-list" id="rd-list"></dl>
+    <div class="modal-actions" id="rd-actions"></div>
+  </div>
+</div>
+
+<!-- EXPORT CSV DIALOG (payment ledger) -->
+<div class="modal-overlay hidden" id="export-modal">
+  <div class="modal-box" style="max-width:520px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Export CSV</h2>
+      <button class="modal-close" onclick="closeExportModal()">&times;</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">What to export</label>
+      <select class="form-select" id="ex-kind" onchange="updateExportDialog()">
+        <option value="payments">Payments received (list of entries)</option>
+        <option value="status">Paid &amp; unpaid list (by house)</option>
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Period</label>
+        <select class="form-select" id="ex-period" onchange="updateExportDialog()">
+          <option value="fy">Complete financial year</option>
+          <option value="q1">Quarter 1 (Apr–Jun)</option>
+          <option value="q2">Quarter 2 (Jul–Sep)</option>
+          <option value="q3">Quarter 3 (Oct–Dec)</option>
+          <option value="q4">Quarter 4 (Jan–Mar)</option>
+          <option value="custom">Custom date range</option>
+        </select>
+      </div>
+      <div class="form-group" id="ex-fy-wrap">
+        <label class="form-label">Financial year</label>
+        <select class="form-select" id="ex-fy" onchange="updateExportDialog()"></select>
+      </div>
+    </div>
+
+    <div class="form-row hidden" id="ex-custom-wrap">
+      <div class="form-group">
+        <label class="form-label">From</label>
+        <input class="form-input" type="date" id="ex-from" onchange="updateExportDialog()" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">To</label>
+        <input class="form-input" type="date" id="ex-to" onchange="updateExportDialog()" />
+      </div>
+    </div>
+
+    <div class="form-group hidden" id="ex-status-wrap">
+      <label class="form-label">Show</label>
+      <select class="form-select" id="ex-status">
+        <option value="all">All houses (with Paid / Unpaid status)</option>
+        <option value="paid">Paid only</option>
+        <option value="unpaid">Unpaid &amp; part-paid only</option>
+      </select>
+    </div>
+
+    <div id="ex-preview" style="font-size:13px;font-weight:600;color:var(--navy);margin:2px 0 6px;"></div>
+    <div id="ex-hint" style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:6px;"></div>
+
+    <div id="ex-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="ex-submit-btn" onclick="runLedgerExport()">Download CSV</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD / EDIT PAYMENT MODAL (payment ledger) -->
+<div class="modal-overlay hidden" id="payment-entry-modal">
+  <div class="modal-box" style="max-width:560px;">
+    <div class="modal-header">
+      <h2 class="modal-title" id="pe-modal-title">Add Payment</h2>
+      <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="pe-date" onchange="updatePaymentDuration()" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount (Rs.) *</label>
+        <input class="form-input" type="number" id="pe-amount" min="0" oninput="updatePaymentDuration()" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">House No. *</label>
+        <input class="form-input" id="pe-house" list="pe-house-list" placeholder="e.g. K-05, Shop - 12, R-56" oninput="fillOwnerFromHouse()" autocomplete="off" />
+        <datalist id="pe-house-list"></datalist>
+        <div id="pe-owner-hint" style="font-size:12px;margin-top:4px;color:var(--text2);"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Owner (auto)</label>
+        <input class="form-input" id="pe-name" placeholder="Fetched from house no." readonly style="background:var(--surface2);cursor:not-allowed;" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Duration</label>
+        <select class="form-select" id="pe-duration" onchange="updatePaymentDuration()">
+          <option value="1">1 quarter</option>
+          <option value="2">2 quarters</option>
+          <option value="3">3 quarters</option>
+          <option value="4">Complete financial year</option>
+        </select>
+      </div>
+      <div class="form-group" id="pe-start-wrap">
+        <label class="form-label">Starting quarter</label>
+        <select class="form-select" id="pe-start-q" onchange="peStartTouched=true;updatePaymentDuration()"></select>
+      </div>
+    </div>
+    <div id="pe-duration-hint" style="font-size:12px;line-height:1.6;margin:-4px 0 14px;"></div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <input class="form-input" id="pe-description" placeholder="Maintenance" value="Maintenance" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Remark</label>
+      <select class="form-select" id="pe-remark" onchange="onRemarkChange()">
+        <option value="">No remark</option>
+        <option value="Payment of previous dues">Payment of previous dues</option>
+        <option value="__other">Other (type a remark)</option>
+      </select>
+      <input class="form-input hidden" id="pe-remark-text" maxlength="200" placeholder="Type the remark" style="margin-top:8px;" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Payment Mode</label>
+        <select class="form-select" id="pe-mode">
+          <option value="cash">Cash</option>
+          <option value="online">Online</option>
+          <option value="cheque">Cheque</option>
+          <option value="online_upi">UPI</option>
+          <option value="online_neft">NEFT</option>
+          <option value="online_rtgs">RTGS</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bill Book No.</label>
+        <input class="form-input" id="pe-billbook" placeholder="e.g. 57" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Receipt No.</label>
+      <input class="form-input" id="pe-receipt" placeholder="e.g. 6696" />
+    </div>
+
+    <div id="pe-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePaymentModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="pe-submit-btn" onclick="submitPaymentEntry()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     EDIT BILL MODAL — admin/president/secretary/treasurer only
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="edit-bill-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Edit Bill</h2>
+      <button class="modal-close" onclick="closeEditBillModal()">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px;" id="edit-bill-info"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Total Amount Due (₹) *</label>
+        <input class="form-input" type="number" id="eb-amount-due" min="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Amount Paid (₹)</label>
+        <input class="form-input" type="number" id="eb-amount-paid" min="0" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-select" id="eb-status">
+        <option value="unpaid">Unpaid</option>
+        <option value="partial">Partial</option>
+        <option value="paid">Paid</option>
+        <option value="waived">Waived</option>
+      </select>
+    </div>
+    <div id="eb-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeEditBillModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="eb-submit-btn" onclick="submitEditBill()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     RESIDENT EDIT PROFILE MODAL
+     Lets a resident update their own contact details.
+     House number and unit type are read-only (admin-controlled).
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="res-edit-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Edit My Details</h2>
+      <button class="modal-close" onclick="closeResEditModal()">✕</button>
+    </div>
+
+    <!-- Read-only fields (shown for reference, not editable) -->
+    <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:var(--text2);">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <span>House Number</span>
+        <strong id="re-house-display" style="color:var(--navy);">—</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;">
+        <span>Unit Type</span>
+        <strong id="re-type-display" style="color:var(--navy);">—</strong>
+      </div>
+      <div style="margin-top:8px;font-size:11px;color:var(--text3);">
+        House number and unit type can only be changed by the admin.
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Primary Phone *</label>
+        <input class="form-input" id="re-phone-primary" placeholder="10-digit mobile number" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Alternate Phone</label>
+        <input class="form-input" id="re-phone-secondary" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" type="email" id="re-email" placeholder="your@email.com" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Vehicle 1 Registration</label>
+        <input class="form-input" id="re-vehicle-1" placeholder="e.g. MH-12 AB 1234" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Vehicle 2 Registration</label>
+        <input class="form-input" id="re-vehicle-2" placeholder="Optional" />
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Name</label>
+        <input class="form-input" id="re-emergency-name" placeholder="e.g. ABC Kumar" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emergency Contact Phone</label>
+        <input class="form-input" id="re-emergency-phone" placeholder="e.g. 9876543210" />
+      </div>
+    </div>
+
+    <div id="re-error" class="error-msg hidden"></div>
+    <div id="re-success" class="success-msg hidden"></div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeResEditModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="re-submit-btn" onclick="submitResEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     POST NOTICE MODAL
+     Fields: title, category, priority, body, expiry
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="notice-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title" id="notice-modal-title">Post New Notice</h2>
+      <button class="modal-close" onclick="closeNoticeModal()">✕</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notice Title *</label>
+      <input class="form-input" id="n-title" placeholder="e.g. Water Supply Interruption on 15th May" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="n-category">
+          <option value="general">General</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="event">Event</option>
+          <option value="emergency">Emergency</option>
+          <option value="finance">Finance</option>
+          <option value="legal">Legal</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="n-priority">
+          <option value="normal">Normal</option>
+          <option value="high">High</option>
+          <option value="urgent">Urgent</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notice Body *</label>
+      <textarea class="form-textarea" id="n-body" style="min-height:120px;" placeholder="Write the full notice text here..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Visible To</label>
+        <select class="form-select" id="n-visible-to">
+          <option value="all">All Residents</option>
+          <option value="admin_only">Committee/Admin Only</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valid Until (optional)</label>
+        <input class="form-input" id="n-expiry" type="date" />
+      </div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="n-pinned" style="width:auto;" />
+      <label class="form-label" style="margin:0;" for="n-pinned">📌 Pin this notice to the top</label>
+    </div>
+    <div id="notice-error" class="error-msg hidden">Please fill in the required fields (Title, Body).</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeNoticeModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="notice-submit-btn" onclick="postNotice()">Post Notice</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     LOG COMPLAINT MODAL
+     Fields: resident, house, category, subject, description, priority
+     ════════════════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="complaint-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 class="modal-title">Log New Complaint</h2>
+      <button class="modal-close" onclick="closeComplaintModal()">✕</button>
+    </div>
+    <div class="form-group" id="c-house-group" style="display:none;">
+      <label class="form-label">House Number (logging on a resident's behalf)</label>
+      <input class="form-input" id="c-house" placeholder="e.g. A-101" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category *</label>
+        <select class="form-select" id="c-category">
+          <option value="">Select category</option>
+          <option value="plumbing">Plumbing</option>
+          <option value="electrical">Electrical</option>
+          <option value="lift">Lift / Elevator</option>
+          <option value="common_area">Common Area</option>
+          <option value="security">Security</option>
+          <option value="noise">Noise / Disturbance</option>
+          <option value="parking">Parking</option>
+          <option value="pest_control">Pest Control</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="c-priority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+          <option value="critical">Critical</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Subject / Title *</label>
+      <input class="form-input" id="c-subject" placeholder="Brief description of the issue" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Detailed Description *</label>
+      <textarea class="form-textarea" id="c-description" placeholder="Describe the issue in detail..."></textarea>
+    </div>
+    <div id="complaint-error" class="error-msg hidden">Please fill in all required fields.</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeComplaintModal()">Cancel</button>
+      <button class="btn-add btn-gold" id="complaint-submit-btn" onclick="logComplaint()">Submit Complaint</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── IMPORT MEMBERS FROM EXCEL MODAL ── -->
+<div class="modal-overlay hidden" id="import-modal">
+  <div class="modal-box" style="max-width:720px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Import Members from Excel</h2>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+
+    <div id="import-step-upload">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
+        Upload an .xlsx file with the columns below. <strong>unit_type is auto-detected from the house number</strong> — you do not need a unit_type column.
+      </p>
+      <div style="background:var(--surface2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.9;">
+        <strong style="color:var(--navy);">Required columns:</strong>
+        <code>full_name</code>, <code>house_number</code>, <code>phone_primary</code><br/>
+        <strong style="color:var(--navy);">Optional columns:</strong>
+        <code>phone_secondary</code>, <code>email</code>, <code>vehicle_1_reg</code>, <code>vehicle_2_reg</code>,
+        <code>emergency_contact_name</code>, <code>emergency_contact_phone</code><br/>
+        <strong style="color:var(--navy);">Unit type auto-detection:</strong><br/>
+        &nbsp;Row House → <code>Antilia-xx</code>, <code>Empress-xx</code>, <code>Royale-xx</code><br/>
+        &nbsp;2 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Regal-xx</code>, <code>A-1-xx</code>, <code>A-2-xx</code><br/>
+        &nbsp;3 BHK &nbsp;&nbsp;&nbsp;&nbsp;→ <code>Kingston-xx</code><br/>
+        &nbsp;Shop &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <code>Shop-xx</code>
+      </div>
+      <input type="file" id="import-file-input" accept=".xlsx,.xls" onchange="handleImportFile(event)" />
+      <div id="import-parse-error" class="error-msg hidden" style="margin-top:12px;"></div>
+    </div>
+
+    <div id="import-step-preview" class="hidden">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:10px;">
+        Found <strong id="import-row-count">0</strong> rows. Review below, then confirm to import into the live database.
+      </p>
+      <div style="max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:8px;">
+        <table style="width:100%;font-size:12px;">
+          <thead style="position:sticky;top:0;background:#f5f5f7;">
+            <tr><th style="padding:6px 8px;text-align:left;">Sheet</th><th style="padding:6px 8px;text-align:left;">House</th><th style="padding:6px 8px;text-align:left;">Name</th><th style="padding:6px 8px;text-align:left;">Type</th><th style="padding:6px 8px;text-align:left;">Phone</th></tr>
+          </thead>
+          <tbody id="import-preview-body"></tbody>
+        </table>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn-cancel" onclick="closeImportModal()">Cancel</button>
+        <button class="btn-add btn-gold" id="import-confirm-btn" onclick="confirmImport()">Confirm & Import</button>
+      </div>
+    </div>
+
+    <div id="import-step-result" class="hidden">
+      <div id="import-result-summary" style="font-size:14px;margin-bottom:12px;"></div>
+      <div id="import-result-failures" style="max-height:260px;overflow:auto;font-size:12px;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn-add btn-gold" onclick="closeImportModal()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════════════════════════
+     JAVASCRIPT — All application logic
+     ════════════════════════════════════════════════════════════ -->
+<!-- Mobile navigation drawer (populated on open) -->
+<div id="mobile-overlay" onclick="closeMobileMenu()"></div>
+<div id="mobile-menu" aria-label="Navigation menu"></div>
+
+
+
+<!-- Install banner + iPhone instructions -->
+<div id="install-banner" role="dialog" aria-label="Install the KGC app">
+  <img src="icon-192.png" alt="" />
+  <div class="ib-text"><b>Install the KGC app</b>Open it from your home screen, full screen.</div>
+  <button class="ib-go" onclick="kgcInstallApp()">Install</button>
+  <button class="ib-no" onclick="kgcDismissInstall()" aria-label="Not now">&times;</button>
+</div>
+
+<div class="modal-overlay hidden" id="install-help-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Install the KGC app</h2>
+      <button class="modal-close" onclick="closeInstallHelp()">&times;</button>
+    </div>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:8px;" id="install-help-intro">On iPhone and iPad, install it from Safari:</p>
+    <ol class="install-steps" id="install-help-steps">
+      <li>Tap the <b>Share</b> button at the bottom of Safari.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The KGC icon now opens the app full screen.</li>
+    </ol>
+    <div class="modal-actions"><button class="btn-add btn-gold" onclick="closeInstallHelp()">Got it</button></div>
+  </div>
+</div>
+
+<script src="assets/app.js?v=572d214f"></script>
+</body>
+</html>

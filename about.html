@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- ═══════════════════════════════════════════════════
+     KRISHNA GRAND CITY SOCIETY — Admin Portal
+     File: krishna_grand_city_admin.html
+     Version: 2.0
+     Society: Krishna Grand City, Sheetala Colony, Kohka, Bhilai
+     ═══════════════════════════════════════════════════ -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>About — Krishna Grand City Society</title>
+
+<!-- Installable web app (PWA): manifest, icons and phone-browser colours -->
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0f1f3d" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="KGC" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
+<!-- Google Fonts: Libre Caslon Text (headings) + Hanken Grotesk (body) -->
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Hindi fonts: Rozha One (display/headings) + Noto Sans Devanagari (body) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<link rel="stylesheet" href="assets/app.css?v=572d214f" />
+</head>
+<body data-kind="public" data-page="about">
+<!-- Toast notifications host -->
+<div id="toast-wrap" aria-live="polite" aria-atomic="false"></div>
+<nav>
+  <div class="nav-left">
+  <button id="burger" class="burger no-translate" onclick="toggleMobileMenu()" aria-label="Open menu">&#9776;</button>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">
+      <!-- Society home icon -->
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" fill="#0f1f3d"/>
+        <polyline points="9,22 9,12 15,12 15,22" fill="#0f1f3d"/>
+      </svg>
+    </div>
+    <span class="nav-brand">Krishna<span> Grand</span> City</span>
+  </div>
+  </div><!-- /nav-left -->
+  <div class="nav-links">
+    <button class="nav-btn" onclick="showPage('home')">Home</button>
+    <button class="nav-btn active" onclick="showPage('about')">About</button>
+    <button class="nav-btn" id="nav-login-btn" onclick="showPage('login')">Admin Login</button>
+    <button class="nav-btn" id="nav-logout-btn" style="display:none" onclick="logout()">Logout</button>
+    <button class="nav-btn" id="nav-install-btn" onclick="kgcInstallApp()">Install app</button>
+    <button id="lang-toggle" class="no-translate" onclick="toggleLanguage()">हिंदी</button>
+  </div>
+</nav>
+<div id="page-about">
+  <div class="about-section">
+    <div class="about-inner">
+      <div class="about-text">
+        <div class="section-label">Our Society</div>
+        <h2 class="section-title" style="color:#fff">A Thriving Community Since 2018</h2>
+        <p>Krishna Grand City Society is home to over 247 residents across 94 units spread across 2 BHK apartments, 3 BHK apartments, and independent row houses in Sheetala Colony, Kohka, Bhilai.</p>
+        <p>Our elected Resident Welfare Association (RWA) manages day-to-day administration, facility upkeep, security and financial planning — all with full transparency to residents.</p>
+        <p>This digital portal was created to modernise our record-keeping, making it easier for committee members to serve the community effectively.</p>
+      </div>
+      <!-- Committee members 2024-25 -->
+      <div class="about-card">
+        <h4>Committee Members 2025–26</h4>
+        <ul class="about-list">
+          <li>Amit Singh — President</li>
+          <li>Surendra Singh — Secretary</li>
+          <li>N. Anantharama Ramesh — Treasurer</li>
+          <!-- Add remaining committee members here when names are available -->
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Facilities overview -->
+  <div class="section">
+    <div class="section-label">Our Facilities</div>
+    <h2 class="section-title">Life at Krishna Grand City</h2>
+    <p class="section-sub">We take pride in maintaining world-class facilities for our residents and their families.</p>
+    <div class="feature-grid" style="margin-top:36px">
+      <div class="feature-card"><div class="feat-icon">🏋️</div><div class="feat-title">Gymnasium</div><div class="feat-desc">Fully equipped modern gym with certified trainers available Monday to Saturday.</div></div>
+      <div class="feature-card"><div class="feat-icon">🎉</div><div class="feat-title">Community Hall</div><div class="feat-desc">Spacious hall for events, meetings, and celebrations — bookable by residents.</div></div>
+      <div class="feature-card"><div class="feat-icon">🌳</div><div class="feat-title">Landscaped Gardens</div><div class="feat-desc">3 acres of manicured green spaces, jogging tracks and children's play areas.</div></div>
+      <div class="feature-card"><div class="feat-icon">🛡️</div><div class="feat-title">24/7 Security</div><div class="feat-desc">CCTV coverage, biometric entry and trained security personnel round-the-clock.</div></div>
+      <div class="feature-card"><div class="feat-icon">🏛️</div><div class="feat-title">Club House</div><div class="feat-desc">Exclusive clubhouse with indoor games, library, and social spaces for residents.</div></div>
+    </div>
+  </div>
+  <div class="footer">© 2025 <span>Sainaath Ramesh Iyer</span> · All rights reserved</div>
+</div>
+<!-- Mobile navigation drawer (populated on open) -->
+<div id="mobile-overlay" onclick="closeMobileMenu()"></div>
+<div id="mobile-menu" aria-label="Navigation menu"></div>
+
+
+
+<!-- Install banner + iPhone instructions -->
+<div id="install-banner" role="dialog" aria-label="Install the KGC app">
+  <img src="icon-192.png" alt="" />
+  <div class="ib-text"><b>Install the KGC app</b>Open it from your home screen, full screen.</div>
+  <button class="ib-go" onclick="kgcInstallApp()">Install</button>
+  <button class="ib-no" onclick="kgcDismissInstall()" aria-label="Not now">&times;</button>
+</div>
+
+<div class="modal-overlay hidden" id="install-help-modal">
+  <div class="modal-box" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 class="modal-title">Install the KGC app</h2>
+      <button class="modal-close" onclick="closeInstallHelp()">&times;</button>
+    </div>
+    <p style="font-size:14px;color:var(--text2);margin-bottom:8px;" id="install-help-intro">On iPhone and iPad, install it from Safari:</p>
+    <ol class="install-steps" id="install-help-steps">
+      <li>Tap the <b>Share</b> button at the bottom of Safari.</li>
+      <li>Scroll down and tap <b>Add to Home Screen</b>.</li>
+      <li>Tap <b>Add</b>. The KGC icon now opens the app full screen.</li>
+    </ol>
+    <div class="modal-actions"><button class="btn-add btn-gold" onclick="closeInstallHelp()">Got it</button></div>
+  </div>
+</div>
+
+<script src="assets/app.js?v=572d214f"></script>
+</body>
+</html>
