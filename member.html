@@ -28,7 +28,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rozha+One&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-<link rel="stylesheet" href="assets/app.css?v=572d214f" />
+<link rel="stylesheet" href="assets/app.css?v=93f90a52" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -112,6 +112,11 @@
         <button class="sb-btn" id="sb-facilities" onclick="showDash('facilities')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           Facilities
+        </button>
+        <!-- Access Control — administrator account only -->
+        <button class="sb-btn perm-hidden" id="sb-access" onclick="showDash('access')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          Access Control
         </button>
       </div>
       <!-- Logged-in user info panel at sidebar bottom -->
@@ -630,6 +635,28 @@
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeReceivableModal()">Cancel</button>
       <button class="btn-add btn-gold" id="rv-submit-btn" onclick="submitReceivable()">Save Receivable</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACCESS CONTROL: create login / reset password -->
+<div class="modal-overlay hidden" id="access-pw-modal" onclick="if(event.target===this) closeAccessPw()">
+  <div class="modal-box" style="max-width:440px;" role="dialog" aria-modal="true" aria-labelledby="ap-title">
+    <div class="modal-header">
+      <div>
+        <h2 class="modal-title" id="ap-title"></h2>
+        <div id="ap-sub" style="font-size:13px;color:var(--text2);margin-top:2px;"></div>
+      </div>
+      <button class="modal-close" onclick="closeAccessPw()" aria-label="Close">&times;</button>
+    </div>
+    <div class="form-group" id="ap-mobile-row"><label class="form-label" for="ap-mobile">Mobile number (login ID)</label><input class="form-input" type="tel" id="ap-mobile" autocomplete="off"></div>
+    <div class="form-group"><label class="form-label" for="ap-pass">Password (at least 8 characters)</label>
+      <div style="display:flex;gap:8px;"><input class="form-input" type="text" id="ap-pass" autocomplete="off"><button class="btn-sm btn-sm-outline" type="button" onclick="genAccessPw()">Generate</button></div></div>
+    <p style="font-size:12px;color:var(--text2);margin:0;">Share the password with the resident directly. It is not shown again.</p>
+    <div id="ap-error" class="error-msg hidden"></div>
+    <div class="modal-actions">
+      <button class="btn-sm btn-sm-outline" onclick="closeAccessPw()">Cancel</button>
+      <button class="btn-add btn-gold" id="ap-submit" onclick="submitAccessPw()">Save</button>
     </div>
   </div>
 </div>
@@ -1155,6 +1182,6 @@
   </div>
 </div>
 
-<script src="assets/app.js?v=572d214f"></script>
+<script src="assets/app.js?v=93f90a52"></script>
 </body>
 </html>

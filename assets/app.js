@@ -537,6 +537,7 @@ const DASH_PAGE_FILES = {
   'members': 'members.html', 'detail': 'member.html', 'finances': 'finances.html',
   'bills': 'maintenance.html', 'pay-upi': 'pay-upi.html', 'notices': 'notices.html',
   'complaints': 'complaints.html', 'facilities': 'facilities.html',
+  'access': 'access.html',
   'resident-home': 'profile.html', 'res-bills': 'my-bills.html', 'res-complaints': 'my-complaints.html',
 };
 function goToFile(file) { window.location.href = file; }
@@ -681,6 +682,7 @@ function applySession(userData) {
       resident:    'Resident',
     }[userData.role] || userData.role,
     tier: tierMap[userData.role] || 'resident',
+    roleKey: userData.role,
     initials,
     houseNumber: userData.houseNumber,
     memberId: userData.memberId,
@@ -821,6 +823,7 @@ function isAdmin()     { return currentUser && currentUser.tier === 'admin'; }
 function isManager()   { return currentUser && currentUser.tier === 'manager'; }
 function isCommittee() { return currentUser && currentUser.tier === 'committee'; }
 function isResident()  { return currentUser && currentUser.tier === 'resident'; }
+function isSuperAdmin() { return !!(currentUser && currentUser.roleKey === 'super_admin'); }
 // Can write = admin or manager
 function canWrite()    { return isAdmin() || isManager(); }
 // Can delete = admin only
@@ -842,7 +845,8 @@ function applyPermissions() {
   const staff     = admin || manager || committee; // anyone non-resident
 
   // ── Resident-only sidebar items ──
-  setPermHidden('sb-myprofile',      !resident);
+  setPermHidden('sb-myprofile',      !(resident || (staff && currentUser && currentUser.memberId)));
+  setPermHidden('sb-access',         !isSuperAdmin());
   setPermHidden('sb-res-bills',      !resident);
   setPermHidden('sb-res-complaints', !resident);
 
@@ -889,16 +893,18 @@ function showDash(view) {
   // Committee can only access: notices, complaints, facilities
   // (they cannot see members list, bills, or finances)
   const committeeOnly = ['members', 'finances', 'bills', 'notices', 'complaints', 'facilities'];
-  if (isCommittee() && !committeeOnly.includes(view)) view = 'notices';
+  if (isCommittee() && !committeeOnly.includes(view) && !(view === 'resident-home' && currentUser.memberId)) view = 'notices';
 
   // Residents go to their own scoped views
   if (isResident() && !['resident-home','res-bills','res-complaints','pay-upi','facilities','notices'].includes(view)) {
     view = 'resident-home';
   }
-  // Staff have no use for the resident-only pages
+  // Staff have no use for the resident-only pages, except their own profile when the account is tied to a house
   if (currentUser && !isResident() && ['resident-home','res-bills','res-complaints'].includes(view)) {
-    view = landingView();
+    if (!(view === 'resident-home' && currentUser.memberId)) view = landingView();
   }
+  // Access Control is for the administrator account only
+  if (view === 'access' && !isSuperAdmin()) view = landingView();
   // Multi-page mode: the section lives in its own file — open it
   if (!document.getElementById('dash-' + view)) {
     goToFile(DASH_PAGE_FILES[view] || SITE_PAGE_FILES.home);
@@ -906,7 +912,7 @@ function showDash(view) {
   }
   // All dashboard sub-views (only the ones present in this document)
   const views = [
-    'members','detail','finances','notices','complaints','bills','pay-upi','facilities',
+    'members','detail','finances','notices','complaints','bills','pay-upi','facilities','access',
     'resident-home','res-bills','res-complaints',
   ];
   views.forEach(v => {
@@ -925,6 +931,7 @@ function showDash(view) {
     'complaints':    'sb-complaints',
     'bills':         'sb-bills',
     'facilities':    'sb-facilities',
+    'access':        'sb-access',
     'resident-home': 'sb-myprofile',
     'res-bills':     'sb-res-bills',
     'res-complaints':'sb-res-complaints',
@@ -938,6 +945,7 @@ function showDash(view) {
   if (view === 'complaints')     loadComplaints();
   if (view === 'bills')          { initLedgerYearDropdowns(); loadLedger(); loadLedgerSummary(); }
   if (view === 'facilities')     loadHallBookings();
+  if (view === 'access')         loadAccess();
   if (view === 'resident-home')  loadResidentHome();
   if (view === 'res-bills')      loadResBills();
   if (view === 'res-complaints') loadResComplaints();
@@ -2583,6 +2591,12 @@ async function loadResidentHome() {
   document.getElementById('res-home-greeting').textContent = `${greeting}, ${currentUser.name.split(' ')[0]}`;
   document.getElementById('res-home-house').textContent = `House ${currentUser.houseNumber || ''} · Krishna Grand City Society`;
 
+  // Staff (president … committee) see only their own profile here; bills and complaints are theirs as residents only
+  const selfOnly = !isResident();
+  ['res-home-kpis', 'res-home-bills-section'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.style.display = selfOnly ? 'none' : '';
+  });
+
   // If no member record is linked, show a helpful message but still show the page
   if (!currentUser.memberId) {
     document.getElementById('res-profile-content').innerHTML =
@@ -2597,8 +2611,8 @@ async function loadResidentHome() {
   // Load all three in parallel
   const [memberData, billData, complaintData] = await Promise.allSettled([
     apiRequest(`/api/members/${currentUser.memberId}`),
-    apiRequest('/api/bills'),
-    apiRequest('/api/complaints'),
+    selfOnly ? Promise.reject(new Error('skip')) : apiRequest('/api/bills'),
+    selfOnly ? Promise.reject(new Error('skip')) : apiRequest('/api/complaints'),
   ]);
 
   // ── Profile card ──
@@ -3658,7 +3672,11 @@ function splitHouse(str) {
 // (K ↔ Kingston, R ↔ Regal, RH ↔ Row House ...), accepted only if exactly one member fits.
 function findMemberByHouse(typed) {
   const key = houseKey(typed);
-  const exact = members.find(x => houseKey(x.house) === key);
+  // After a sale a house has two records (previous owner inactive, current owner active):
+  // the current owner is the one payments belong to.
+  const current = list => list.find(x => x.isActive !== false) || list[0];
+  const exactAll = members.filter(x => houseKey(x.house) === key);
+  const exact = exactAll.length ? current(exactAll) : null;
   if (exact) return { member: exact };
   const t = splitHouse(typed);
   if (!t || !t.block) return { member: null, candidates: [] };
@@ -3668,9 +3686,12 @@ function findMemberByHouse(typed) {
     const h = splitHouse(x.house);
     if (!h || h.num !== t.num) return false;
     const hb = aliases[h.block] || h.block;
+    if (tb === 'ROWHOUSE') return ['ANTILIA', 'ANTILLIA', 'EMPRESS', 'ROYALE', 'ROWHOUSE'].includes(hb);   // RH-15 = Antilia / Empress / Royale 15
     return hb.startsWith(tb) || tb.startsWith(hb);
   });
-  if (hits.length === 1) return { member: hits[0] };
+  const liveHits = hits.filter(x => x.isActive !== false);
+  if (liveHits.length === 1) return { member: liveHits[0] };
+  if (!liveHits.length && hits.length === 1) return { member: hits[0] };
   return { member: null, candidates: hits };
 }
 
@@ -3678,7 +3699,7 @@ function findMemberByHouse(typed) {
 function populateHouseSuggestions() {
   const dl = document.getElementById('pe-house-list');
   if (!dl) return;
-  dl.innerHTML = [...members].sort((a, b) => compareHouseNumbers(a.house, b.house))
+  dl.innerHTML = members.filter(m => m.isActive !== false).sort((a, b) => compareHouseNumbers(a.house, b.house))
     .map(m => `<option value="${String(m.house).replace(/"/g, '&quot;')}">${String(m.name || '').replace(/</g, '&lt;')}</option>`).join('');
 }
 
@@ -4823,6 +4844,138 @@ function openRowDetail(kind, id) {
   document.getElementById('row-detail-modal').classList.remove('hidden');
 }
 
+/* ════════════════════════════════════════════════════
+   ACCESS CONTROL (administrator account only)
+   ════════════════════════════════════════════════════ */
+let accessData = { roles: [], people: [], accounts: [] };
+let accessFilter = 'all', accessQuery = '', accessPwTarget = null;
+const ACCESS_LABELS = { president: 'President', secretary: 'Secretary', treasurer: 'Treasurer', manager: 'Manager',
+                        committee: 'Committee Member', resident: 'Resident', super_admin: 'Administrator' };
+
+async function loadAccess() {
+  const tb = document.getElementById('ac-tbody');
+  if (!tb) return;
+  tb.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text2);">Loading…</td></tr>';
+  try {
+    accessData = await apiRequest('/api/access');
+    renderAccess();
+  } catch (e) {
+    tb.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--red);">Could not load access levels: ${escapeHtmlText(e.message)}</td></tr>`;
+  }
+}
+function setAccessFilter(f, btn) {
+  accessFilter = f;
+  document.querySelectorAll('#ac-tabs .ftab').forEach(b => b.classList.toggle('active', b === btn));
+  renderAccess();
+}
+function setAccessSearch(q) { accessQuery = q.trim().toLowerCase(); renderAccess(); }
+
+function renderAccess() {
+  const all = accessData.people;
+  const withRole = all.filter(p => p.hasLogin && p.role && p.role !== 'resident');
+  document.getElementById('ac-k-total').textContent = all.length;
+  document.getElementById('ac-k-roles').textContent = withRole.length;
+  document.getElementById('ac-k-nologin').textContent = all.filter(p => !p.hasLogin).length;
+
+  const rows = all.filter(p => {
+    if (accessFilter === 'roles' && !(p.hasLogin && p.role !== 'resident')) return false;
+    if (accessFilter === 'residents' && !(p.hasLogin && p.role === 'resident')) return false;
+    if (accessFilter === 'nologin' && p.hasLogin) return false;
+    if (accessQuery && !(`${p.name} ${p.house} ${p.mobile || ''} ${p.phone || ''}`.toLowerCase().includes(accessQuery))) return false;
+    return true;
+  });
+  document.getElementById('ac-count').textContent = rows.length + ' shown';
+  const tb = document.getElementById('ac-tbody');
+  tb.innerHTML = rows.length ? rows.map(p => {
+    const id = escapeHtmlText(p.memberId);
+    const locked = p.role === 'super_admin' || p.self;
+    let level, action = '';
+    if (!p.hasLogin) {
+      level = '<span style="color:var(--text2);">No login</span>';
+      action = `<button class="btn-sm btn-sm-outline" onclick="openAccessPw('${id}','create')">Create login</button>`;
+    } else if (locked) {
+      level = `<span class="badge badge-navy">${ACCESS_LABELS[p.role] || p.role}</span>${p.self ? ' <span style="font-size:11px;color:var(--text2);">(you)</span>' : ''}`;
+      if (p.self) action = `<button class="btn-sm btn-sm-outline" onclick="openAccessPw('${id}','reset')">Reset password</button>`;
+    } else {
+      const opts = accessData.roles.map(r => `<option value="${r}"${r === p.role ? ' selected' : ''}>${ACCESS_LABELS[r]}</option>`).join('');
+      level = `<select class="form-input" style="padding:6px 8px;min-width:160px;" id="ac-sel-${id}" data-orig="${p.role}" onchange="accessSelChanged('${id}')">${opts}</select>`;
+      action = `<button class="btn-add btn-gold hidden" style="font-size:12px;padding:6px 12px;" id="ac-save-${id}" onclick="saveAccess('${id}')">Save</button>
+        ${p.role !== 'resident' ? `<button class="btn-sm btn-sm-red" onclick="revokeAccess('${id}')">Revoke</button>` : ''}
+        <button class="btn-sm btn-sm-outline" onclick="openAccessPw('${id}','reset')">Reset password</button>`;
+    }
+    return `<tr>
+      <td>${escapeHtmlText(p.house)}</td>
+      <td>${escapeHtmlText(p.name)}</td>
+      <td style="font-size:12px;">${escapeHtmlText(p.mobile || p.email || '—')}</td>
+      <td>${level}</td>
+      <td style="white-space:nowrap;display:flex;gap:6px;align-items:center;">${action}</td></tr>`;
+  }).join('') : '<tr><td colspan="5" style="text-align:center;padding:28px;color:var(--text2);">No residents match.</td></tr>';
+
+  const acc = accessData.accounts || [];
+  document.getElementById('ac-accounts').innerHTML = acc.length ? acc.map(a =>
+    `<div class="detail-row"><span class="detail-key">${escapeHtmlText(a.display_name || a.email || a.mobile || '—')}${a.is_active ? '' : ' (inactive)'}</span>
+     <span class="detail-val">${ACCESS_LABELS[a.role] || a.role} · ${escapeHtmlText(a.email || a.mobile || '')}</span></div>`).join('')
+    : 'None.';
+}
+function accessSelChanged(id) {
+  const sel = document.getElementById('ac-sel-' + id), save = document.getElementById('ac-save-' + id);
+  if (save) save.classList.toggle('hidden', sel.value === sel.dataset.orig);
+}
+async function setAccessRole(id, role, okMsg) {
+  try {
+    await apiRequest('/api/access/' + id, { method: 'PATCH', body: JSON.stringify({ role }) });
+    showToast(okMsg, 'ok');
+    await loadAccess();
+  } catch (e) { alert('Could not change access: ' + e.message); await loadAccess(); }
+}
+function saveAccess(id) {
+  const p = accessData.people.find(x => x.memberId === id), role = document.getElementById('ac-sel-' + id).value;
+  if (!confirm(`Give ${p.name} (${p.house}) the access level "${ACCESS_LABELS[role]}"? It applies immediately.`)) return;
+  setAccessRole(id, role, role === 'resident' ? 'Access revoked.' : 'Access level updated.');
+}
+function revokeAccess(id) {
+  const p = accessData.people.find(x => x.memberId === id);
+  if (!confirm(`Revoke ${p.name}'s access? They become a plain resident immediately.`)) return;
+  setAccessRole(id, 'resident', 'Access revoked.');
+}
+function genAccessPw() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  let pw = ''; const buf = new Uint32Array(10); crypto.getRandomValues(buf);
+  buf.forEach(n => { pw += chars[n % chars.length]; });
+  document.getElementById('ap-pass').value = pw + '#7';
+}
+function openAccessPw(id, mode) {
+  const p = accessData.people.find(x => x.memberId === id);
+  accessPwTarget = { id, mode };
+  document.getElementById('ap-title').textContent = mode === 'create' ? 'Create login' : 'Reset password';
+  document.getElementById('ap-sub').textContent = p.house + ' · ' + p.name;
+  document.getElementById('ap-mobile-row').style.display = mode === 'create' ? '' : 'none';
+  document.getElementById('ap-mobile').value = String(p.phone || '').replace(/[^0-9]/g, '').slice(-10);
+  document.getElementById('ap-pass').value = '';
+  document.getElementById('ap-error').classList.add('hidden');
+  document.getElementById('access-pw-modal').classList.remove('hidden');
+  document.getElementById('ap-pass').focus();
+}
+function closeAccessPw() { document.getElementById('access-pw-modal').classList.add('hidden'); }
+async function submitAccessPw() {
+  const { id, mode } = accessPwTarget, err = document.getElementById('ap-error'), btn = document.getElementById('ap-submit');
+  const password = document.getElementById('ap-pass').value;
+  if (password.length < 8) { err.textContent = 'The password must be at least 8 characters.'; err.classList.remove('hidden'); return; }
+  btn.disabled = true;
+  try {
+    const body = mode === 'create' ? { password, mobile: document.getElementById('ap-mobile').value } : { password };
+    const r = await apiRequest('/api/access/' + id + (mode === 'create' ? '/login' : '/password'), { method: 'POST', body: JSON.stringify(body) });
+    closeAccessPw();
+    showToast(mode === 'create' ? 'Login created. Login ID: ' + r.loginId : 'Password reset.', 'ok');
+    await loadAccess();
+  } catch (e) { err.textContent = e.message; err.classList.remove('hidden'); }
+  finally { btn.disabled = false; }
+}
+document.addEventListener('keydown', e => {
+  const m = document.getElementById('access-pw-modal');
+  if (e.key === 'Escape' && m && !m.classList.contains('hidden')) closeAccessPw();
+});
+
 /* ── House ownership transfer + house maintenance history ── */
 function openTransferModal() {
   const m = currentDetailMember;
@@ -5180,7 +5333,7 @@ window.addEventListener('resize', () => {
     '📤 Import from Excel':'📤 एक्सेल से इंपोर्ट करें', '+ Add New Member':'+ नया सदस्य जोड़ें',
     'Total Members':'कुल सदस्य', '2 BHK Units':'2 बीएचके इकाइयाँ', '3 BHK Units':'3 बीएचके इकाइयाँ',
     'Shops':'दुकानें', 'Shop':'दुकान', 'e.g. Kingston - 05, Shop - 12':'उदा. किंग्स्टन - 05, दुकान - 12',
-    'Row Houses':'रो हाउस', '🏠 Transfer Ownership':'🏠 स्वामित्व हस्तांतरण', 'Transfer ownership':'स्वामित्व हस्तांतरण', '🏠 House Maintenance History':'🏠 मकान का मेंटेनेंस इतिहास', 'Current owner':'वर्तमान मालिक', 'Previous owner':'पूर्व मालिक', 'Inactive / Moved Out':'निष्क्रिय / स्थानांतरित',
+    'Row Houses':'रो हाउस', 'Access Control':'एक्सेस नियंत्रण', 'Revoke':'वापस लें', 'Create login':'लॉगिन बनाएँ', 'Reset password':'पासवर्ड रीसेट करें', 'No login':'लॉगिन नहीं', '🏠 Transfer Ownership':'🏠 स्वामित्व हस्तांतरण', 'Transfer ownership':'स्वामित्व हस्तांतरण', '🏠 House Maintenance History':'🏠 मकान का मेंटेनेंस इतिहास', 'Current owner':'वर्तमान मालिक', 'Previous owner':'पूर्व मालिक', 'Inactive / Moved Out':'निष्क्रिय / स्थानांतरित',
     'All':'सभी', '2 BHK (Regal / Sunshine)':'2 बीएचके (रीगल / सनशाइन)',
     '2 BHK (Regal / A-1 / A-2)':'2 बीएचके (रीगल / A-1 / A-2)',
     '3 BHK (Kingston)':'3 बीएचके (किंग्स्टन)', 'Row House (Antillia / Empress / Royale)':'रो हाउस (एंटीलिया / एम्प्रेस / रोयाल)',
